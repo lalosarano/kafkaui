@@ -1,6 +1,6 @@
 package com.kafkagui.cluster;
 
-import static com.kafkagui.common.KafkaFutures.get;
+import static com.kafkagui.common.KafkaFutures.await;
 
 import com.kafkagui.cluster.dto.ClusterInfo;
 import java.util.Collection;
@@ -33,13 +33,13 @@ public class ClusterService {
 
     public ClusterInfo current() {
         DescribeClusterResult cluster = adminClient.describeCluster();
-        Collection<Node> nodes = get(cluster.nodes());
-        Node controller = get(cluster.controller());
-        String clusterId = get(cluster.clusterId());
+        Collection<Node> nodes = await(cluster.nodes());
+        Node controller = await(cluster.controller());
+        String clusterId = await(cluster.clusterId());
 
-        Set<String> topicNames = get(adminClient.listTopics(new ListTopicsOptions().listInternal(true)).names());
+        Set<String> topicNames = await(adminClient.listTopics(new ListTopicsOptions().listInternal(true)).names());
         DescribeTopicsResult dtr = adminClient.describeTopics(topicNames);
-        Map<String, TopicDescription> descs = get(dtr.allTopicNames());
+        Map<String, TopicDescription> descs = await(dtr.allTopicNames());
 
         int totalPartitions = 0, urp = 0, offline = 0;
         for (TopicDescription td : descs.values()) {
@@ -69,7 +69,7 @@ public class ClusterService {
         try {
             ConfigResource resource = new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(nodes.iterator().next().id()));
             DescribeConfigsResult res = adminClient.describeConfigs(List.of(resource));
-            Config config = get(res.all()).get(resource);
+            Config config = await(res.all()).get(resource);
             ConfigEntry e = config.get("inter.broker.protocol.version");
             return e != null ? e.value() : "unknown";
         } catch (Exception e) {

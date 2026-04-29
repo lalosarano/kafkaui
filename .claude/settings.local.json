@@ -11,7 +11,22 @@
       "Bash(git commit *)",
       "Bash(npm install *)",
       "Bash(npm test *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(git tag *)",
+      "Bash(docker compose *)",
+      "Bash(docker info *)",
+      "Read(//c/Program Files/Java/**)",
+      "Read(//c/Program Files/**)",
+      "Bash(\"/c/Users/tborchkhadze/IntelliJ IDEA 2025.2.1/jbr/bin/java\" -version)",
+      "Bash(export JAVA_HOME=\"/c/Users/tborchkhadze/IntelliJ IDEA 2025.2.1/jbr\")",
+      "Bash(export PATH=\"$JAVA_HOME/bin:/c/Users/tborchkhadze/IntelliJ IDEA 2025.2.1/plugins/maven/lib/maven3/bin:$PATH\")",
+      "Bash(netstat -ano)",
+      "Bash(curl -s --max-time 5 http://localhost:8080/actuator/health)",
+      "Bash(curl -s --max-time 5 http://localhost:8080/api/v1/clusters/current)",
+      "Bash(curl -s --max-time 5 -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:3001/)",
+      "Bash(docker run *)",
+      "Bash(curl -s --max-time 10 http://localhost:8080/api/v1/clusters/current)",
+      "Bash(curl -s --max-time 10 http://localhost:8080/api/v1/brokers)"
     ]
   }
 }

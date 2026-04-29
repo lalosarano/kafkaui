@@ -1,6 +1,6 @@
 package com.kafkagui.consumer;
 
-import static com.kafkagui.common.KafkaFutures.get;
+import static com.kafkagui.common.KafkaFutures.await;
 
 import com.kafkagui.consumer.dto.ConsumerGroupDetail;
 import com.kafkagui.consumer.dto.ConsumerGroupMember;
@@ -36,14 +36,14 @@ public class ConsumerGroupService {
     }
 
     public List<ConsumerGroupSummary> list(String stateFilter, String q) {
-        Collection<ConsumerGroupListing> all = get(adminClient.listConsumerGroups().all());
+        Collection<ConsumerGroupListing> all = await(adminClient.listConsumerGroups().all());
         List<String> ids = all.stream()
                 .map(ConsumerGroupListing::groupId)
                 .filter(id -> q == null || q.isBlank() || id.toLowerCase().contains(q.toLowerCase()))
                 .toList();
         if (ids.isEmpty()) return List.of();
 
-        Map<String, ConsumerGroupDescription> descs = get(adminClient.describeConsumerGroups(ids).all());
+        Map<String, ConsumerGroupDescription> descs = await(adminClient.describeConsumerGroups(ids).all());
 
         List<ConsumerGroupSummary> out = new ArrayList<>(ids.size());
         for (String id : ids) {
@@ -67,16 +67,16 @@ public class ConsumerGroupService {
     }
 
     public ConsumerGroupDetail get(String groupId) {
-        ConsumerGroupDescription d = get(adminClient.describeConsumerGroups(List.of(groupId)).all()).get(groupId);
+        ConsumerGroupDescription d = await(adminClient.describeConsumerGroups(List.of(groupId)).all()).get(groupId);
         if (d == null) {
             throw new org.apache.kafka.common.errors.GroupIdNotFoundException(groupId);
         }
-        Map<TopicPartition, OffsetAndMetadata> committed = get(adminClient.listConsumerGroupOffsets(groupId)
+        Map<TopicPartition, OffsetAndMetadata> committed = await(adminClient.listConsumerGroupOffsets(groupId)
                 .partitionsToOffsetAndMetadata());
 
         Set<TopicPartition> tps = committed.keySet();
         Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> ends = tps.isEmpty() ? Map.of()
-                : get(adminClient.listOffsets(tps.stream().collect(Collectors.toMap(t -> t, t -> OffsetSpec.latest()))).all());
+                : await(adminClient.listOffsets(tps.stream().collect(Collectors.toMap(t -> t, t -> OffsetSpec.latest()))).all());
 
         Map<TopicPartition, MemberDescription> partitionToMember = new HashMap<>();
         for (MemberDescription m : d.members()) {
@@ -122,10 +122,10 @@ public class ConsumerGroupService {
 
     private long computeTotalLag(String groupId, ConsumerGroupDescription desc) {
         try {
-            Map<TopicPartition, OffsetAndMetadata> committed = get(adminClient.listConsumerGroupOffsets(groupId)
+            Map<TopicPartition, OffsetAndMetadata> committed = await(adminClient.listConsumerGroupOffsets(groupId)
                     .partitionsToOffsetAndMetadata());
             if (committed.isEmpty()) return 0L;
-            Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> ends = get(
+            Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> ends = await(
                     adminClient.listOffsets(committed.keySet().stream()
                             .collect(Collectors.toMap(t -> t, t -> OffsetSpec.latest()))).all());
             long total = 0;
@@ -144,7 +144,7 @@ public class ConsumerGroupService {
             throw new UnsupportedOperationException("Reset by timestamp is not implemented in v0.1");
         }
         // Determine target partitions
-        Map<TopicPartition, OffsetAndMetadata> committed = get(adminClient.listConsumerGroupOffsets(groupId)
+        Map<TopicPartition, OffsetAndMetadata> committed = await(adminClient.listConsumerGroupOffsets(groupId)
                 .partitionsToOffsetAndMetadata());
         List<TopicPartition> tps = committed.keySet().stream()
                 .filter(tp -> tp.topic().equals(req.topic()))
@@ -163,22 +163,22 @@ public class ConsumerGroupService {
             if (req.value() == null) throw new IllegalArgumentException("value required for strategy=offset");
             Map<TopicPartition, OffsetAndMetadata> target = tps.stream()
                     .collect(Collectors.toMap(t -> t, t -> new OffsetAndMetadata(req.value())));
-            get(adminClient.alterConsumerGroupOffsets(groupId, target).all());
+            await(adminClient.alterConsumerGroupOffsets(groupId, target).all());
             return new ResetOffsetsResult(groupId, req.topic(),
                     target.entrySet().stream().collect(Collectors.toMap(e -> e.getKey().partition(), e -> e.getValue().offset())));
         } else {
             throw new IllegalArgumentException("Unknown strategy: " + req.strategy());
         }
 
-        Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> resolved = get(adminClient.listOffsets(spec).all());
+        Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> resolved = await(adminClient.listOffsets(spec).all());
         Map<TopicPartition, OffsetAndMetadata> target = resolved.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> new OffsetAndMetadata(e.getValue().offset())));
-        get(adminClient.alterConsumerGroupOffsets(groupId, target).all());
+        await(adminClient.alterConsumerGroupOffsets(groupId, target).all());
         return new ResetOffsetsResult(groupId, req.topic(),
                 target.entrySet().stream().collect(Collectors.toMap(e -> e.getKey().partition(), e -> e.getValue().offset())));
     }
 
     public void delete(String groupId) {
-        get(adminClient.deleteConsumerGroups(List.of(groupId)).all());
+        await(adminClient.deleteConsumerGroups(List.of(groupId)).all());
     }
 }

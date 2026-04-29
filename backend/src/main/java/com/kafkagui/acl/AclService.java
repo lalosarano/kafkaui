@@ -1,6 +1,6 @@
 package com.kafkagui.acl;
 
-import static com.kafkagui.common.KafkaFutures.get;
+import static com.kafkagui.common.KafkaFutures.await;
 
 import com.kafkagui.acl.dto.Acl;
 import com.kafkagui.acl.dto.CreateAclRequest;
@@ -41,13 +41,13 @@ public class AclService {
                 AclOperation.ANY,
                 AclPermissionType.ANY
         );
-        Collection<AclBinding> bindings = get(adminClient.describeAcls(new AclBindingFilter(rpf, aef)).values());
+        Collection<AclBinding> bindings = await(adminClient.describeAcls(new AclBindingFilter(rpf, aef)).values());
         return bindings.stream().map(this::toDto).toList();
     }
 
     public Acl create(CreateAclRequest req) {
         AclBinding binding = toBinding(req);
-        get(adminClient.createAcls(List.of(binding)).all());
+        await(adminClient.createAcls(List.of(binding)).all());
         return toDto(binding);
     }
 
@@ -63,7 +63,7 @@ public class AclService {
                 StringUtils.hasText(operation) ? AclOperation.fromString(operation) : AclOperation.ANY,
                 AclPermissionType.ANY
         );
-        return get(adminClient.deleteAcls(List.of(new AclBindingFilter(rpf, aef))).all()).size();
+        return await(adminClient.deleteAcls(List.of(new AclBindingFilter(rpf, aef))).all()).size();
     }
 
     private AclBinding toBinding(CreateAclRequest r) {

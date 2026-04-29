@@ -7,7 +7,7 @@ import org.apache.kafka.common.KafkaFuture;
 public final class KafkaFutures {
     private KafkaFutures() {}
 
-    public static <T> T get(KafkaFuture<T> future) {
+    public static <T> T await(KafkaFuture<T> future) {
         try {
             return future.get();
         } catch (InterruptedException ie) {

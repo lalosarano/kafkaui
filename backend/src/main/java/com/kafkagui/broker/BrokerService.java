@@ -1,6 +1,6 @@
 package com.kafkagui.broker;
 
-import static com.kafkagui.common.KafkaFutures.get;
+import static com.kafkagui.common.KafkaFutures.await;
 
 import com.kafkagui.broker.dto.Broker;
 import java.util.List;
@@ -20,9 +20,9 @@ public class BrokerService {
 
     public List<Broker> list() {
         DescribeClusterResult res = adminClient.describeCluster();
-        Node controller = get(res.controller());
+        Node controller = await(res.controller());
         Integer controllerId = controller != null ? controller.id() : null;
-        return get(res.nodes()).stream()
+        return await(res.nodes()).stream()
                 .map(n -> new Broker(
                         n.id(),
                         n.host(),

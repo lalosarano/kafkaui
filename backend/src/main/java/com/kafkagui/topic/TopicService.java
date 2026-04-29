@@ -1,6 +1,6 @@
 package com.kafkagui.topic;
 
-import static com.kafkagui.common.KafkaFutures.get;
+import static com.kafkagui.common.KafkaFutures.await;
 
 import com.kafkagui.common.dto.PageResponse;
 import com.kafkagui.topic.dto.CreateTopicRequest;
@@ -39,8 +39,8 @@ public class TopicService {
     }
 
     public PageResponse<Topic> list(String q, boolean showInternal, int page, int size) {
-        Set<String> names = get(adminClient.listTopics(new ListTopicsOptions().listInternal(showInternal)).names());
-        Map<String, TopicDescription> descs = get(adminClient.describeTopics(names).allTopicNames());
+        Set<String> names = await(adminClient.listTopics(new ListTopicsOptions().listInternal(showInternal)).names());
+        Map<String, TopicDescription> descs = await(adminClient.describeTopics(names).allTopicNames());
 
         List<Topic> all = descs.values().stream()
                 .filter(td -> q == null || q.isBlank() || td.name().toLowerCase().contains(q.toLowerCase()))
@@ -56,15 +56,15 @@ public class TopicService {
     }
 
     public TopicDetail get(String name) {
-        TopicDescription td = get(adminClient.describeTopics(List.of(name)).allTopicNames()).get(name);
+        TopicDescription td = await(adminClient.describeTopics(List.of(name)).allTopicNames()).get(name);
 
         List<TopicPartition> tps = td.partitions().stream()
                 .map(p -> new TopicPartition(name, p.partition()))
                 .toList();
         Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> earliest =
-                get(adminClient.listOffsets(tps.stream().collect(Collectors.toMap(t -> t, t -> OffsetSpec.earliest()))).all());
+                await(adminClient.listOffsets(tps.stream().collect(Collectors.toMap(t -> t, t -> OffsetSpec.earliest()))).all());
         Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> latest =
-                get(adminClient.listOffsets(tps.stream().collect(Collectors.toMap(t -> t, t -> OffsetSpec.latest()))).all());
+                await(adminClient.listOffsets(tps.stream().collect(Collectors.toMap(t -> t, t -> OffsetSpec.latest()))).all());
 
         List<Partition> partitions = td.partitions().stream()
                 .map(p -> {
@@ -87,7 +87,7 @@ public class TopicService {
 
     public List<TopicConfigEntry> configs(String name) {
         ConfigResource resource = new ConfigResource(ConfigResource.Type.TOPIC, name);
-        Config config = get(adminClient.describeConfigs(List.of(resource)).all()).get(resource);
+        Config config = await(adminClient.describeConfigs(List.of(resource)).all()).get(resource);
         return config.entries().stream()
                 .map(e -> new TopicConfigEntry(e.name(), e.value(), e.source().name(), e.isReadOnly(), e.isSensitive()))
                 .sorted((a, b) -> a.name().compareTo(b.name()))
@@ -99,12 +99,12 @@ public class TopicService {
         if (req.configs() != null && !req.configs().isEmpty()) {
             nt.configs(req.configs());
         }
-        get(adminClient.createTopics(List.of(nt)).all());
+        await(adminClient.createTopics(List.of(nt)).all());
         return new Topic(req.name(), req.partitions(), req.replicationFactor(), false);
     }
 
     public void delete(String name) {
-        get(adminClient.deleteTopics(List.of(name)).all());
+        await(adminClient.deleteTopics(List.of(name)).all());
     }
 
     public List<TopicConfigEntry> updateConfigs(String name, Map<String, String> updates) {
@@ -115,7 +115,7 @@ public class TopicService {
         }
         Map<ConfigResource, java.util.Collection<AlterConfigOp>> arg = new HashMap<>();
         arg.put(resource, ops);
-        get(adminClient.incrementalAlterConfigs(arg).all());
+        await(adminClient.incrementalAlterConfigs(arg).all());
         return configs(name);
     }
 }

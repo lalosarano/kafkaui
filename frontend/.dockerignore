@@ -1,0 +1,11 @@
+node_modules/
+.next/
+out/
+.turbo/
+playwright-report/
+test-results/
+.git/
+.gitignore
+README.md
+.env.local
+coverage/

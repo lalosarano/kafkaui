@@ -117,7 +117,7 @@ public class MessageService {
         }
     }
 
-    Message toMessage(ConsumerRecord<byte[], byte[]> r) {
+    public Message toMessage(ConsumerRecord<byte[], byte[]> r) {
         Map<String, String> headers = new HashMap<>();
         for (Header h : r.headers()) {
             headers.put(h.key(), h.value() == null ? null : new String(h.value(), StandardCharsets.UTF_8));

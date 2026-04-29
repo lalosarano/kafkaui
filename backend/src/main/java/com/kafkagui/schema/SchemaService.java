@@ -8,9 +8,6 @@ import io.confluent.kafka.schemaregistry.ParsedSchema;
 import io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import io.confluent.kafka.schemaregistry.json.JsonSchemaProvider;
-import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchemaProvider;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -88,8 +85,8 @@ public class SchemaService {
     private ParsedSchema parseSchema(String body, String type) {
         Optional<ParsedSchema> parsed = switch (type.toUpperCase()) {
             case "AVRO" -> new AvroSchemaProvider().parseSchema(body, List.of(), false, false);
-            case "JSON" -> new JsonSchemaProvider().parseSchema(body, List.of(), false, false);
-            case "PROTOBUF" -> new ProtobufSchemaProvider().parseSchema(body, List.of(), false, false);
+            case "JSON", "PROTOBUF" -> throw new UnsupportedOperationException(
+                    type + " compatibility check is not supported in v0.1 — see FOLLOWUPS.md");
             default -> throw new IllegalArgumentException("Unknown schemaType: " + type);
         };
         return parsed.orElseThrow(() -> new IllegalArgumentException("Could not parse " + type + " schema"));
