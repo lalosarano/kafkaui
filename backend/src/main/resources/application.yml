@@ -1,0 +1,42 @@
+server:
+  port: 8080
+  error:
+    include-message: always
+    include-stacktrace: never
+
+spring:
+  application:
+    name: kafka-gui-backend
+  jackson:
+    default-property-inclusion: non_null
+  threads:
+    virtual:
+      enabled: true
+
+kafka-gui:
+  bootstrap-servers: ${KAFKAGUI_BOOTSTRAP_SERVERS:localhost:9092}
+  client-id: ${KAFKAGUI_CLIENT_ID:kafka-gui}
+  request-timeout-ms: 10000
+  security-protocol: ${KAFKAGUI_SECURITY_PROTOCOL:PLAINTEXT}
+  sasl-mechanism: ${KAFKAGUI_SASL_MECHANISM:}
+  sasl-jaas-config: ${KAFKAGUI_SASL_JAAS_CONFIG:}
+  ssl-truststore-location: ${KAFKAGUI_SSL_TRUSTSTORE_LOCATION:}
+  ssl-truststore-password: ${KAFKAGUI_SSL_TRUSTSTORE_PASSWORD:}
+  schema-registry:
+    url: ${KAFKAGUI_SCHEMA_REGISTRY_URL:}
+    cache-capacity: 256
+  cors:
+    allowed-origins: ${KAFKAGUI_CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  message:
+    max-poll-records: 500
+    poll-timeout-ms: 2000
+    historical-fetch-timeout-ms: 5000
+  ws:
+    lag-broadcast-interval-ms: 2000
+    tail-buffer-size: 100
+
+logging:
+  level:
+    root: INFO
+    com.kafkagui: INFO
+    org.apache.kafka: WARN

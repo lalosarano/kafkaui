@@ -1,0 +1,36 @@
+package com.kafkagui.broker;
+
+import static com.kafkagui.common.KafkaFutures.get;
+
+import com.kafkagui.broker.dto.Broker;
+import java.util.List;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.DescribeClusterResult;
+import org.apache.kafka.common.Node;
+import org.springframework.stereotype.Service;
+
+@Service
+public class BrokerService {
+
+    private final AdminClient adminClient;
+
+    public BrokerService(AdminClient adminClient) {
+        this.adminClient = adminClient;
+    }
+
+    public List<Broker> list() {
+        DescribeClusterResult res = adminClient.describeCluster();
+        Node controller = get(res.controller());
+        Integer controllerId = controller != null ? controller.id() : null;
+        return get(res.nodes()).stream()
+                .map(n -> new Broker(
+                        n.id(),
+                        n.host(),
+                        n.port(),
+                        n.rack(),
+                        controllerId != null && n.id() == controllerId
+                ))
+                .sorted((a, b) -> Integer.compare(a.id(), b.id()))
+                .toList();
+    }
+}
