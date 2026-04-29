@@ -142,7 +142,7 @@ export function AddClusterModal({
             <div>
               <label className="mb-1.5 block text-[11.5px] font-medium text-fg-2">Schema Registry URL</label>
               <Input className="font-mono" value={draft.schemaRegistryUrl ?? ""} onChange={(e) => update("schemaRegistryUrl", e.target.value || null)} placeholder="https://schema-registry-1.kafka:8081" />
-              <div className="mt-1 text-[11.5px] text-fg-3">Optional. Leave blank if you don't use Schema Registry.</div>
+              <div className="mt-1 text-[11.5px] text-fg-3">Optional. Leave blank if you don&apos;t use Schema Registry.</div>
             </div>
 
             <div
