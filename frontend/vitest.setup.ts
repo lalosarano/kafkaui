@@ -19,8 +19,6 @@ class ResizeObserverStub {
   unobserve() {}
   disconnect() {}
 }
-// @ts-expect-error JSDOM doesn't define ResizeObserver
-global.ResizeObserver = ResizeObserverStub;
+(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = ResizeObserverStub;
 
-// @ts-expect-error JSDOM doesn't define scrollIntoView on Element
-Element.prototype.scrollIntoView = vi.fn();
+(Element.prototype as unknown as { scrollIntoView: () => void }).scrollIntoView = vi.fn();

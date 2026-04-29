@@ -23,6 +23,14 @@ import { cn } from "@/lib/utils";
 const STATES = ["all", "stable", "rebalancing", "empty", "dead"] as const;
 
 export default function ConsumersPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <ConsumersPageInner />
+    </React.Suspense>
+  );
+}
+
+function ConsumersPageInner() {
   const router = useRouter();
   const search = useSearchParams();
   const [filter, setFilter] = React.useState("");

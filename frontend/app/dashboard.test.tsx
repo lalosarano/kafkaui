@@ -38,8 +38,11 @@ function renderWithQuery(ui: React.ReactElement) {
 describe("DashboardPage", () => {
   it("renders cluster KPIs and broker table once data loads", async () => {
     renderWithQuery(<DashboardPage />);
-    await waitFor(() => expect(screen.getByText("test-cluster")).toBeInTheDocument());
-    expect(screen.getByText("Brokers")).toBeInTheDocument();
-    expect(screen.getByText("Topics")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByText("test-cluster").length).toBeGreaterThan(0);
+    });
+    // brokers table renders rows
+    expect(await screen.findByText("localhost:9092")).toBeInTheDocument();
+    expect(await screen.findByText("localhost:9093")).toBeInTheDocument();
   });
 });

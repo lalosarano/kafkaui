@@ -122,6 +122,29 @@ Priorities: P0 critical, P1 important, P2 nice-to-have, P3 polish.
 
 ---
 
+## [P2] Live cluster / topic throughput metrics
+**Where:** dashboard `app/page.tsx`, topic detail `app/topics/[name]/page.tsx`
+**What:** mockup shows live messages/sec and bytes/sec dual-area charts; we render only static cluster info (broker count, topic count, etc.) — backend has no metrics endpoint.
+**Why it matters:** the dashboard feels stripped-down vs. the mockup.
+**Suggested approach:** scrape JMX via Prometheus or use Kafka's MBean exports; expose `/metrics/throughput?window=60s` on the backend; render the existing `<DualAreaChart>` component.
+**Estimated scope:** L
+
+## [P2] Per-broker disk / CPU / network metrics
+**Where:** dashboard, brokers page
+**What:** mockup shows disk %, CPU %, MB/s per broker; we list ID, host, rack, role only.
+**Why it matters:** capacity planning is the operator's main use case for the brokers page.
+**Suggested approach:** the kafka-clients lib doesn't expose host metrics — needs Prometheus + node-exporter integration or Kafka's `kafka.server` JMX MBeans.
+**Estimated scope:** L
+
+## [P3] Use `next/font` instead of `<link>` for Geist + JetBrains Mono
+**Where:** `frontend/app/layout.tsx`
+**What:** ESLint warns about page-custom-font; the app works but the warning is noise.
+**Why it matters:** cleaner CI logs.
+**Suggested approach:** move to `next/font/google` (`Geist` is on Google Fonts) and `next/font/local` for JetBrains Mono.
+**Estimated scope:** S
+
+---
+
 ## Build-time additions (tooling outside the original stack)
 
-(none yet — list any package added during build that wasn't in PLAN.md)
+(none — every dependency was in PLAN.md)

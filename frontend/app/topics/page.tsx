@@ -21,6 +21,14 @@ import type { Topic } from "@/lib/types/kafka";
 import { toast } from "@/components/kafka/toast";
 
 export default function TopicsPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <TopicsPageInner />
+    </React.Suspense>
+  );
+}
+
+function TopicsPageInner() {
   const router = useRouter();
   const search = useSearchParams();
   const qc = useQueryClient();
