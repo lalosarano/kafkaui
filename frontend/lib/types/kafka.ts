@@ -200,6 +200,34 @@ export type CreateAclRequest = {
   permissionType: "ALLOW" | "DENY";
 };
 
+export type ThroughputSeries = {
+  timestamps: number[];
+  messagesInPerSec: number[];
+  messagesOutPerSec: number[];
+  bytesInPerSec: number[];
+  bytesOutPerSec: number[];
+  topTopics: TopTopic[];
+};
+
+export type TopTopic = {
+  name: string;
+  partitions: number;
+  totalMessages: number;
+  messagesPerSec: number;
+  bytesPerSec: number;
+  lag: number;
+  sparkline: number[];
+};
+
+export type Alert = {
+  id: string;
+  severity: "info" | "warning" | "error";
+  title: string;
+  body: string;
+  resource: string | null;
+  ts: number;
+};
+
 export type LagSnapshot = {
   groupId: string;
   totalLag: number;
