@@ -4,6 +4,8 @@ import static com.kafkagui.common.KafkaFutures.await;
 
 import com.kafkagui.acl.dto.Acl;
 import com.kafkagui.acl.dto.CreateAclRequest;
+import com.kafkagui.cluster.ClusterContext;
+import com.kafkagui.cluster.ClusterRegistry;
 import java.util.Collection;
 import java.util.List;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -23,10 +25,14 @@ import org.springframework.util.StringUtils;
 @Service
 public class AclService {
 
-    private final AdminClient adminClient;
+    private final ClusterRegistry registry;
 
-    public AclService(AdminClient adminClient) {
-        this.adminClient = adminClient;
+    public AclService(ClusterRegistry registry) {
+        this.registry = registry;
+    }
+
+    private AdminClient client() {
+        return registry.adminClient(ClusterContext.require());
     }
 
     public List<Acl> list(String principal, String resourceType, String resourceName) {
@@ -41,13 +47,13 @@ public class AclService {
                 AclOperation.ANY,
                 AclPermissionType.ANY
         );
-        Collection<AclBinding> bindings = await(adminClient.describeAcls(new AclBindingFilter(rpf, aef)).values());
+        Collection<AclBinding> bindings = await(client().describeAcls(new AclBindingFilter(rpf, aef)).values());
         return bindings.stream().map(this::toDto).toList();
     }
 
     public Acl create(CreateAclRequest req) {
         AclBinding binding = toBinding(req);
-        await(adminClient.createAcls(List.of(binding)).all());
+        await(client().createAcls(List.of(binding)).all());
         return toDto(binding);
     }
 
@@ -63,7 +69,7 @@ public class AclService {
                 StringUtils.hasText(operation) ? AclOperation.fromString(operation) : AclOperation.ANY,
                 AclPermissionType.ANY
         );
-        return await(adminClient.deleteAcls(List.of(new AclBindingFilter(rpf, aef))).all()).size();
+        return await(client().deleteAcls(List.of(new AclBindingFilter(rpf, aef))).all()).size();
     }
 
     private AclBinding toBinding(CreateAclRequest r) {

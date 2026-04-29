@@ -26,7 +26,12 @@
       "Bash(curl -s --max-time 5 -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:3001/)",
       "Bash(docker run *)",
       "Bash(curl -s --max-time 10 http://localhost:8080/api/v1/clusters/current)",
-      "Bash(curl -s --max-time 10 http://localhost:8080/api/v1/brokers)"
+      "Bash(curl -s --max-time 10 http://localhost:8080/api/v1/brokers)",
+      "Bash(docker volume *)",
+      "Bash(curl -s --max-time 5 http://localhost:8080/api/v1/cluster-configs)",
+      "Bash(curl -s --max-time 10 -X POST -H \"Content-Type: application/json\" -d '{\"name\":\"probe\",\"bootstrapServers\":\"kafka:9092\",\"securityProtocol\":\"PLAINTEXT\"}' http://localhost:8080/api/v1/cluster-configs/test)",
+      "Bash(curl -s --max-time 10 -X POST -H \"Content-Type: application/json\" -d '{\"name\":\"probe\",\"bootstrapServers\":\"unreachable.local:9092\",\"securityProtocol\":\"PLAINTEXT\"}' http://localhost:8080/api/v1/cluster-configs/test)",
+      "Bash(curl -s --max-time 5 -H \"X-Cluster-Id: default\" http://localhost:8080/api/v1/clusters/current)"
     ]
   }
 }

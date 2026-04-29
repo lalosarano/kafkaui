@@ -1,7 +1,8 @@
 package com.kafkagui.message;
 
+import com.kafkagui.cluster.ClusterContext;
+import com.kafkagui.cluster.ClusterRegistry;
 import com.kafkagui.config.ConsumerFactoryProvider;
-import com.kafkagui.config.KafkaGuiProperties;
 import com.kafkagui.message.dto.Message;
 import com.kafkagui.message.dto.ProduceRequest;
 import com.kafkagui.message.dto.ProduceResult;
@@ -15,7 +16,6 @@ import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.PartitionInfo;
@@ -27,28 +27,28 @@ import org.springframework.stereotype.Service;
 @Service
 public class MessageService {
 
+    private static final int POLL_TIMEOUT_MS = 2000;
+    private static final int FETCH_DEADLINE_MS = 5000;
+
     private final ConsumerFactoryProvider consumerFactory;
-    private final Producer<byte[], byte[]> producer;
+    private final ClusterRegistry registry;
     private final MessageDecoder decoder;
-    private final KafkaGuiProperties props;
 
     public MessageService(
             ConsumerFactoryProvider consumerFactory,
-            Producer<byte[], byte[]> producer,
-            MessageDecoder decoder,
-            KafkaGuiProperties props) {
+            ClusterRegistry registry,
+            MessageDecoder decoder) {
         this.consumerFactory = consumerFactory;
-        this.producer = producer;
+        this.registry = registry;
         this.decoder = decoder;
-        this.props = props;
     }
 
-    /** Historical fetch: assigns partition(s), seeks, polls until limit or timeout. */
     public List<Message> fetch(String topic, Integer partition, Long fromOffset, int limit) {
         if (limit <= 0) limit = 100;
         if (limit > 1000) limit = 1000;
+        String clusterId = ClusterContext.require();
 
-        try (KafkaConsumer<byte[], byte[]> consumer = consumerFactory.create("fetch")) {
+        try (KafkaConsumer<byte[], byte[]> consumer = consumerFactory.create(clusterId, "fetch")) {
             List<TopicPartition> assigned = new ArrayList<>();
             List<PartitionInfo> infos = consumer.partitionsFor(topic);
             if (infos == null) {
@@ -62,7 +62,6 @@ public class MessageService {
             }
             consumer.assign(assigned);
 
-            // Seek
             for (TopicPartition tp : assigned) {
                 if (fromOffset != null) {
                     consumer.seek(tp, fromOffset);
@@ -74,16 +73,12 @@ public class MessageService {
             }
 
             List<Message> out = new ArrayList<>(limit);
-            long deadline = System.currentTimeMillis() + props.message().historicalFetchTimeoutMs();
-            int pollMs = props.message().pollTimeoutMs();
+            long deadline = System.currentTimeMillis() + FETCH_DEADLINE_MS;
             while (out.size() < limit && System.currentTimeMillis() < deadline) {
-                ConsumerRecords<byte[], byte[]> records = consumer.poll(Duration.ofMillis(pollMs));
-                if (records.isEmpty()) {
-                    // first empty poll after a fast end → break early
-                    break;
-                }
+                ConsumerRecords<byte[], byte[]> records = consumer.poll(Duration.ofMillis(POLL_TIMEOUT_MS));
+                if (records.isEmpty()) break;
                 for (ConsumerRecord<byte[], byte[]> r : records) {
-                    out.add(toMessage(r));
+                    out.add(toMessage(clusterId, r));
                     if (out.size() >= limit) break;
                 }
             }
@@ -92,6 +87,7 @@ public class MessageService {
     }
 
     public ProduceResult produce(String topic, ProduceRequest req) {
+        String clusterId = ClusterContext.require();
         byte[] keyBytes = req.key() != null ? req.key().getBytes(StandardCharsets.UTF_8) : null;
         byte[] valueBytes = decoder.encode(req.value());
         Iterable<Header> headers = new ArrayList<>();
@@ -105,7 +101,7 @@ public class MessageService {
         ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(
                 topic, req.partition(), null, keyBytes, valueBytes, headers);
         try {
-            RecordMetadata md = producer.send(record).get();
+            RecordMetadata md = registry.producer(clusterId).send(record).get();
             return new ProduceResult(md.topic(), md.partition(), md.offset(), md.timestamp());
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
@@ -117,12 +113,12 @@ public class MessageService {
         }
     }
 
-    public Message toMessage(ConsumerRecord<byte[], byte[]> r) {
+    public Message toMessage(String clusterId, ConsumerRecord<byte[], byte[]> r) {
         Map<String, String> headers = new HashMap<>();
         for (Header h : r.headers()) {
             headers.put(h.key(), h.value() == null ? null : new String(h.value(), StandardCharsets.UTF_8));
         }
-        var decoded = decoder.decode(r.topic(), r.value());
+        var decoded = decoder.decode(clusterId, r.topic(), r.value());
         String key = decoder.decodeKey(r.key());
         int size = (r.key() != null ? r.key().length : 0) + (r.value() != null ? r.value().length : 0);
         return new Message(

@@ -4,11 +4,9 @@ import static com.kafkagui.common.KafkaFutures.await;
 
 import com.kafkagui.cluster.dto.ClusterInfo;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.ConfigEntry;
@@ -25,13 +23,14 @@ import org.springframework.stereotype.Service;
 @Service
 public class ClusterService {
 
-    private final AdminClient adminClient;
+    private final ClusterRegistry registry;
 
-    public ClusterService(AdminClient adminClient) {
-        this.adminClient = adminClient;
+    public ClusterService(ClusterRegistry registry) {
+        this.registry = registry;
     }
 
     public ClusterInfo current() {
+        AdminClient adminClient = registry.adminClient(ClusterContext.require());
         DescribeClusterResult cluster = adminClient.describeCluster();
         Collection<Node> nodes = await(cluster.nodes());
         Node controller = await(cluster.controller());
@@ -50,13 +49,11 @@ public class ClusterService {
             }
         }
 
-        String version = describeKafkaVersion(nodes);
-
         return new ClusterInfo(
                 clusterId,
                 controller != null ? controller.id() : null,
                 nodes.size(),
-                version,
+                describeKafkaVersion(adminClient, nodes),
                 topicNames.size(),
                 totalPartitions,
                 urp,
@@ -64,7 +61,7 @@ public class ClusterService {
         );
     }
 
-    private String describeKafkaVersion(Collection<Node> nodes) {
+    private String describeKafkaVersion(AdminClient adminClient, Collection<Node> nodes) {
         if (nodes.isEmpty()) return "unknown";
         try {
             ConfigResource resource = new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(nodes.iterator().next().id()));

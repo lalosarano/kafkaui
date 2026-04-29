@@ -1,4 +1,5 @@
 import type { ApiError } from "@/lib/types/kafka";
+import { getActiveClusterId } from "@/lib/active-cluster";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8080/api/v1";
 
@@ -24,11 +25,13 @@ export async function api<T>(path: string, opts: FetchOptions = {}): Promise<T> 
       if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
     }
   }
+  const clusterId = getActiveClusterId();
   const init: RequestInit = {
     ...opts,
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
+      ...(clusterId ? { "X-Cluster-Id": clusterId } : {}),
       ...(opts.headers ?? {}),
     },
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,

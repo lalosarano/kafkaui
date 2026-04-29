@@ -1,5 +1,28 @@
 // Mirrors backend DTOs verbatim. Keep in sync with com.kafkagui.*.dto.
 
+export type ClusterConfig = {
+  id: string;
+  name: string;
+  color: string | null;
+  bootstrapServers: string;
+  securityProtocol: string | null;
+  saslMechanism: string | null;
+  saslJaasConfig: string | null;
+  sslTruststoreLocation: string | null;
+  sslTruststorePassword: string | null;
+  schemaRegistryUrl: string | null;
+};
+
+export type ClusterTestResult = {
+  ok: boolean;
+  error: string | null;
+  message: string | null;
+  brokerCount: number | null;
+  controllerId: number | null;
+  clusterId: string | null;
+  latencyMs: number | null;
+};
+
 export type ApiError = {
   error: string;
   message: string;

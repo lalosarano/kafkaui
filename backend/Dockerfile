@@ -8,8 +8,9 @@ RUN --mount=type=cache,target=/root/.m2 mvn -B -DskipTests package
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-RUN groupadd -r app && useradd -r -g app app
+RUN groupadd -r app && useradd -r -g app app && mkdir -p /data && chown app:app /data
 COPY --from=build /app/target/*.jar /app/app.jar
+VOLUME ["/data"]
 USER app
 EXPOSE 8080
 ENV JAVA_OPTS=""

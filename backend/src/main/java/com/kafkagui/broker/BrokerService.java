@@ -3,6 +3,8 @@ package com.kafkagui.broker;
 import static com.kafkagui.common.KafkaFutures.await;
 
 import com.kafkagui.broker.dto.Broker;
+import com.kafkagui.cluster.ClusterContext;
+import com.kafkagui.cluster.ClusterRegistry;
 import java.util.List;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.DescribeClusterResult;
@@ -12,13 +14,14 @@ import org.springframework.stereotype.Service;
 @Service
 public class BrokerService {
 
-    private final AdminClient adminClient;
+    private final ClusterRegistry registry;
 
-    public BrokerService(AdminClient adminClient) {
-        this.adminClient = adminClient;
+    public BrokerService(ClusterRegistry registry) {
+        this.registry = registry;
     }
 
     public List<Broker> list() {
+        AdminClient adminClient = registry.adminClient(ClusterContext.require());
         DescribeClusterResult res = adminClient.describeCluster();
         Node controller = await(res.controller());
         Integer controllerId = controller != null ? controller.id() : null;

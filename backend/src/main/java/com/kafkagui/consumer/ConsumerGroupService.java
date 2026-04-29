@@ -2,6 +2,8 @@ package com.kafkagui.consumer;
 
 import static com.kafkagui.common.KafkaFutures.await;
 
+import com.kafkagui.cluster.ClusterContext;
+import com.kafkagui.cluster.ClusterRegistry;
 import com.kafkagui.consumer.dto.ConsumerGroupDetail;
 import com.kafkagui.consumer.dto.ConsumerGroupMember;
 import com.kafkagui.consumer.dto.ConsumerGroupSummary;
@@ -19,7 +21,6 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
-import org.apache.kafka.clients.admin.MemberAssignment;
 import org.apache.kafka.clients.admin.MemberDescription;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -29,13 +30,18 @@ import org.springframework.stereotype.Service;
 @Service
 public class ConsumerGroupService {
 
-    private final AdminClient adminClient;
+    private final ClusterRegistry registry;
 
-    public ConsumerGroupService(AdminClient adminClient) {
-        this.adminClient = adminClient;
+    public ConsumerGroupService(ClusterRegistry registry) {
+        this.registry = registry;
+    }
+
+    private AdminClient client() {
+        return registry.adminClient(ClusterContext.require());
     }
 
     public List<ConsumerGroupSummary> list(String stateFilter, String q) {
+        AdminClient adminClient = client();
         Collection<ConsumerGroupListing> all = await(adminClient.listConsumerGroups().all());
         List<String> ids = all.stream()
                 .map(ConsumerGroupListing::groupId)
@@ -53,7 +59,7 @@ public class ConsumerGroupService {
             if (stateFilter != null && !"all".equalsIgnoreCase(stateFilter) && !state.equalsIgnoreCase(stateFilter)) {
                 continue;
             }
-            long lag = computeTotalLag(id, d);
+            long lag = computeTotalLag(adminClient, id);
             out.add(new ConsumerGroupSummary(
                     id,
                     state,
@@ -67,6 +73,7 @@ public class ConsumerGroupService {
     }
 
     public ConsumerGroupDetail get(String groupId) {
+        AdminClient adminClient = client();
         ConsumerGroupDescription d = await(adminClient.describeConsumerGroups(List.of(groupId)).all()).get(groupId);
         if (d == null) {
             throw new org.apache.kafka.common.errors.GroupIdNotFoundException(groupId);
@@ -120,7 +127,7 @@ public class ConsumerGroupService {
         );
     }
 
-    private long computeTotalLag(String groupId, ConsumerGroupDescription desc) {
+    private long computeTotalLag(AdminClient adminClient, String groupId) {
         try {
             Map<TopicPartition, OffsetAndMetadata> committed = await(adminClient.listConsumerGroupOffsets(groupId)
                     .partitionsToOffsetAndMetadata());
@@ -143,7 +150,7 @@ public class ConsumerGroupService {
         if ("timestamp".equals(req.strategy())) {
             throw new UnsupportedOperationException("Reset by timestamp is not implemented in v0.1");
         }
-        // Determine target partitions
+        AdminClient adminClient = client();
         Map<TopicPartition, OffsetAndMetadata> committed = await(adminClient.listConsumerGroupOffsets(groupId)
                 .partitionsToOffsetAndMetadata());
         List<TopicPartition> tps = committed.keySet().stream()
@@ -179,6 +186,6 @@ public class ConsumerGroupService {
     }
 
     public void delete(String groupId) {
-        await(adminClient.deleteConsumerGroups(List.of(groupId)).all());
+        await(client().deleteConsumerGroups(List.of(groupId)).all());
     }
 }

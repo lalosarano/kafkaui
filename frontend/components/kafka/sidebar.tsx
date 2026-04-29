@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutGrid, Table2, Users, FileJson, Shield, Server, Settings, ChevronsUpDown, ChevronsLeft, ChevronsRight,
+  LayoutGrid, Table2, Users, FileJson, Shield, Server, Settings, ChevronsLeft, ChevronsRight,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
-import { clusterApi } from "@/lib/api/cluster";
+import { ClusterSwitcher } from "./cluster-switcher";
 
 const NAV = [
   { href: "/", label: "Overview", icon: LayoutGrid },
@@ -22,12 +21,6 @@ const NAV = [
 export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const { data: cluster } = useQuery({
-    queryKey: ["cluster"],
-    queryFn: clusterApi.current,
-    staleTime: 30_000,
-    retry: 0,
-  });
 
   useEffect(() => {
     document.documentElement.style.setProperty(
@@ -45,20 +38,7 @@ export function Sidebar() {
       )}
       style={{ width: collapsed ? 56 : 232 }}
     >
-      <div className="flex cursor-pointer items-center gap-2.5 border-b border-border p-2.5 hover:bg-bg-hover" title="Switch cluster">
-        <span className="h-2 w-2 flex-shrink-0 rounded-full bg-green shadow-[0_0_0_3px_color-mix(in_oklab,var(--green)_25%,transparent)]" />
-        {!collapsed && (
-          <>
-            <div className="min-w-0 flex-1 overflow-hidden">
-              <div className="truncate text-[13px] font-semibold text-fg">{cluster?.clusterId ?? "kafka-cluster"}</div>
-              <div className="truncate text-[11px] text-fg-3">
-                {cluster ? `${cluster.brokerCount} brokers` : "loading…"}
-              </div>
-            </div>
-            <ChevronsUpDown className="h-3.5 w-3.5 flex-shrink-0 text-fg-3" />
-          </>
-        )}
-      </div>
+      <ClusterSwitcher collapsed={collapsed} />
 
       <nav className="flex flex-1 flex-col gap-px overflow-y-auto p-2">
         {!collapsed && <div className="px-2.5 pb-1.5 pt-3.5 text-[10px] font-semibold uppercase tracking-wider text-fg-4">Cluster</div>}

@@ -14,12 +14,19 @@ public class TailController {
         this.registry = registry;
     }
 
-    public record StartTail(String topicName, Integer partition) {}
+    public record StartTail(String clusterId, String topicName, Integer partition) {}
     public record StopTail(String topicName) {}
 
     @MessageMapping("/tail/start")
     public void start(@Payload StartTail msg, SimpMessageHeaderAccessor headers) {
-        registry.start(headers.getSessionId(), msg.topicName(), msg.partition());
+        String clusterId = msg.clusterId();
+        if (clusterId == null || clusterId.isBlank()) {
+            // STOMP CONNECT may have a session-level cluster header — fall back to that.
+            Object sessionAttr = headers.getSessionAttributes() != null
+                    ? headers.getSessionAttributes().get("clusterId") : null;
+            if (sessionAttr instanceof String s) clusterId = s;
+        }
+        registry.start(headers.getSessionId(), clusterId, msg.topicName(), msg.partition());
     }
 
     @MessageMapping("/tail/stop")

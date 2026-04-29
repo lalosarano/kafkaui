@@ -1,6 +1,6 @@
 package com.kafkagui.ws;
 
-import com.kafkagui.config.KafkaGuiProperties;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -11,10 +11,10 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 public class WsConfig implements WebSocketMessageBrokerConfigurer {
 
-    private final KafkaGuiProperties props;
+    private final String[] origins;
 
-    public WsConfig(KafkaGuiProperties props) {
-        this.props = props;
+    public WsConfig(@Value("${kafka-gui.cors.allowed-origins:http://localhost:3000}") String allowed) {
+        this.origins = allowed.split(",");
     }
 
     @Override
@@ -25,13 +25,7 @@ public class WsConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        String origins = props.cors() != null && props.cors().allowedOrigins() != null
-                ? props.cors().allowedOrigins()
-                : "http://localhost:3000";
-        registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns(origins.split(","))
-                .withSockJS();
-        registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns(origins.split(","));
+        registry.addEndpoint("/ws").setAllowedOriginPatterns(origins).withSockJS();
+        registry.addEndpoint("/ws").setAllowedOriginPatterns(origins);
     }
 }

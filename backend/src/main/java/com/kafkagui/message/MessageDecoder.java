@@ -2,61 +2,58 @@ package com.kafkagui.message;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.confluent.kafka.schemaregistry.ParsedSchema;
+import com.kafkagui.cluster.ClusterRegistry;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import org.springframework.beans.factory.ObjectProvider;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Component;
 
 /**
  * Decodes raw Kafka payload bytes into a typed-ish JSON value.
  *
- * Algorithm:
- *   1. If payload starts with magic byte 0x00 + 4-byte schema id and we have
- *      a SchemaRegistryClient, try Avro deserialization.
- *   2. Else if bytes are valid UTF-8 and parse as JSON, return parsed JSON.
- *   3. Else if bytes are valid UTF-8 (printable), return the string.
- *   4. Else return base64.
+ * <pre>
+ * 1. If payload starts with magic byte 0x00 + 4-byte schema id and the cluster
+ *    has a Schema Registry configured → Avro deserialization.
+ * 2. Else if bytes parse as JSON → return parsed JSON.
+ * 3. Else if bytes are valid printable UTF-8 → return the string.
+ * 4. Else base64.
+ * </pre>
  */
 @Component
 public class MessageDecoder {
 
     private final ObjectMapper mapper = new ObjectMapper();
-    private final ObjectProvider<SchemaRegistryClient> registryProvider;
-    private final KafkaAvroDeserializer avroDeser;
+    private final ClusterRegistry registry;
+    private final ConcurrentHashMap<String, KafkaAvroDeserializer> avroByCluster = new ConcurrentHashMap<>();
 
-    public MessageDecoder(ObjectProvider<SchemaRegistryClient> registryProvider) {
-        this.registryProvider = registryProvider;
-        SchemaRegistryClient registry = registryProvider.getIfAvailable();
-        this.avroDeser = registry != null ? new KafkaAvroDeserializer(registry) : null;
+    public MessageDecoder(ClusterRegistry registry) {
+        this.registry = registry;
     }
 
     public record Decoded(Object value, String format, Integer schemaId) {}
 
-    public Decoded decode(String topic, byte[] bytes) {
+    public Decoded decode(String clusterId, String topic, byte[] bytes) {
         if (bytes == null) return new Decoded(null, "null", null);
 
-        // 1. Confluent magic-byte framed
-        if (bytes.length >= 5 && bytes[0] == 0x0 && avroDeser != null) {
-            try {
-                int schemaId = ByteBuffer.wrap(bytes, 1, 4).getInt();
-                Object obj = avroDeser.deserialize(topic, bytes);
-                // Avro generic record won't be JSON-serializable directly; toString() is acceptable for v0.1.
-                String json = obj.toString();
+        if (bytes.length >= 5 && bytes[0] == 0x0) {
+            KafkaAvroDeserializer avroDeser = avroForCluster(clusterId);
+            if (avroDeser != null) {
                 try {
-                    return new Decoded(mapper.readTree(json), "avro", schemaId);
-                } catch (Exception ignore) {
-                    return new Decoded(json, "avro", schemaId);
-                }
-            } catch (Exception ignore) {
-                // fall through to other strategies
+                    int schemaId = ByteBuffer.wrap(bytes, 1, 4).getInt();
+                    Object obj = avroDeser.deserialize(topic, bytes);
+                    String json = obj.toString();
+                    try {
+                        return new Decoded(mapper.readTree(json), "avro", schemaId);
+                    } catch (Exception ignore) {
+                        return new Decoded(json, "avro", schemaId);
+                    }
+                } catch (Exception ignore) { /* fall through */ }
             }
         }
 
-        // 2. JSON
         String s = new String(bytes, StandardCharsets.UTF_8);
         if (looksLikeJson(s)) {
             try {
@@ -64,13 +61,7 @@ public class MessageDecoder {
                 return new Decoded(node, "json", null);
             } catch (Exception ignore) { /* fall through */ }
         }
-
-        // 3. plain UTF-8
-        if (isPrintableUtf8(bytes, s)) {
-            return new Decoded(s, "text", null);
-        }
-
-        // 4. base64
+        if (isPrintableUtf8(bytes, s)) return new Decoded(s, "text", null);
         return new Decoded(Base64.getEncoder().encodeToString(bytes), "base64", null);
     }
 
@@ -82,6 +73,17 @@ public class MessageDecoder {
 
     public byte[] encode(String value) {
         return value == null ? null : value.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private KafkaAvroDeserializer avroForCluster(String clusterId) {
+        return avroByCluster.computeIfAbsent(clusterId, id -> {
+            try {
+                SchemaRegistryClient sr = registry.schemaRegistry(id);
+                return sr != null ? new KafkaAvroDeserializer(sr) : null;
+            } catch (Exception e) {
+                return null;
+            }
+        });
     }
 
     private boolean looksLikeJson(String s) {

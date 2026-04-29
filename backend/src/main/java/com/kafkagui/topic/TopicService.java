@@ -2,6 +2,8 @@ package com.kafkagui.topic;
 
 import static com.kafkagui.common.KafkaFutures.await;
 
+import com.kafkagui.cluster.ClusterContext;
+import com.kafkagui.cluster.ClusterRegistry;
 import com.kafkagui.common.dto.PageResponse;
 import com.kafkagui.topic.dto.CreateTopicRequest;
 import com.kafkagui.topic.dto.Partition;
@@ -9,6 +11,7 @@ import com.kafkagui.topic.dto.Topic;
 import com.kafkagui.topic.dto.TopicConfigEntry;
 import com.kafkagui.topic.dto.TopicDetail;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,20 +28,24 @@ import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.TopicPartitionInfo;
 import org.apache.kafka.common.config.ConfigResource;
 import org.springframework.stereotype.Service;
 
 @Service
 public class TopicService {
 
-    private final AdminClient adminClient;
+    private final ClusterRegistry registry;
 
-    public TopicService(AdminClient adminClient) {
-        this.adminClient = adminClient;
+    public TopicService(ClusterRegistry registry) {
+        this.registry = registry;
+    }
+
+    private AdminClient client() {
+        return registry.adminClient(ClusterContext.require());
     }
 
     public PageResponse<Topic> list(String q, boolean showInternal, int page, int size) {
+        AdminClient adminClient = client();
         Set<String> names = await(adminClient.listTopics(new ListTopicsOptions().listInternal(showInternal)).names());
         Map<String, TopicDescription> descs = await(adminClient.describeTopics(names).allTopicNames());
 
@@ -56,6 +63,7 @@ public class TopicService {
     }
 
     public TopicDetail get(String name) {
+        AdminClient adminClient = client();
         TopicDescription td = await(adminClient.describeTopics(List.of(name)).allTopicNames()).get(name);
 
         List<TopicPartition> tps = td.partitions().stream()
@@ -86,6 +94,7 @@ public class TopicService {
     }
 
     public List<TopicConfigEntry> configs(String name) {
+        AdminClient adminClient = client();
         ConfigResource resource = new ConfigResource(ConfigResource.Type.TOPIC, name);
         Config config = await(adminClient.describeConfigs(List.of(resource)).all()).get(resource);
         return config.entries().stream()
@@ -99,12 +108,12 @@ public class TopicService {
         if (req.configs() != null && !req.configs().isEmpty()) {
             nt.configs(req.configs());
         }
-        await(adminClient.createTopics(List.of(nt)).all());
+        await(client().createTopics(List.of(nt)).all());
         return new Topic(req.name(), req.partitions(), req.replicationFactor(), false);
     }
 
     public void delete(String name) {
-        await(adminClient.deleteTopics(List.of(name)).all());
+        await(client().deleteTopics(List.of(name)).all());
     }
 
     public List<TopicConfigEntry> updateConfigs(String name, Map<String, String> updates) {
@@ -113,9 +122,9 @@ public class TopicService {
         for (var e : updates.entrySet()) {
             ops.add(new AlterConfigOp(new ConfigEntry(e.getKey(), e.getValue()), AlterConfigOp.OpType.SET));
         }
-        Map<ConfigResource, java.util.Collection<AlterConfigOp>> arg = new HashMap<>();
+        Map<ConfigResource, Collection<AlterConfigOp>> arg = new HashMap<>();
         arg.put(resource, ops);
-        await(adminClient.incrementalAlterConfigs(arg).all());
+        await(client().incrementalAlterConfigs(arg).all());
         return configs(name);
     }
 }

@@ -1,5 +1,7 @@
 package com.kafkagui.schema;
 
+import com.kafkagui.cluster.ClusterContext;
+import com.kafkagui.cluster.ClusterRegistry;
 import com.kafkagui.common.error.SchemaRegistryNotConfiguredException;
 import com.kafkagui.schema.dto.CompatibilityRequest;
 import com.kafkagui.schema.dto.CompatibilityResult;
@@ -12,20 +14,19 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 @Service
 public class SchemaService {
 
-    private final ObjectProvider<SchemaRegistryClient> registryProvider;
+    private final ClusterRegistry registry;
 
-    public SchemaService(ObjectProvider<SchemaRegistryClient> registryProvider) {
-        this.registryProvider = registryProvider;
+    public SchemaService(ClusterRegistry registry) {
+        this.registry = registry;
     }
 
     private SchemaRegistryClient client() {
-        SchemaRegistryClient c = registryProvider.getIfAvailable();
+        SchemaRegistryClient c = registry.schemaRegistry(ClusterContext.require());
         if (c == null) throw new SchemaRegistryNotConfiguredException();
         return c;
     }
@@ -52,9 +53,8 @@ public class SchemaService {
     public SchemaVersion get(String subject, int version) {
         try {
             SchemaMetadata md = client().getSchemaMetadata(subject, version);
-            String compat = safeGetCompatibility(subject);
             return new SchemaVersion(subject, md.getId(), md.getVersion(), md.getSchema(),
-                    md.getSchemaType() != null ? md.getSchemaType() : "AVRO", compat);
+                    md.getSchemaType() != null ? md.getSchemaType() : "AVRO", safeGetCompatibility(subject));
         } catch (Exception e) {
             throw new RuntimeException("Failed to fetch schema version: " + e.getMessage(), e);
         }
@@ -63,9 +63,8 @@ public class SchemaService {
     public SchemaVersion latest(String subject) {
         try {
             SchemaMetadata md = client().getLatestSchemaMetadata(subject);
-            String compat = safeGetCompatibility(subject);
             return new SchemaVersion(subject, md.getId(), md.getVersion(), md.getSchema(),
-                    md.getSchemaType() != null ? md.getSchemaType() : "AVRO", compat);
+                    md.getSchemaType() != null ? md.getSchemaType() : "AVRO", safeGetCompatibility(subject));
         } catch (Exception e) {
             throw new RuntimeException("Failed to fetch latest schema: " + e.getMessage(), e);
         }
@@ -93,10 +92,7 @@ public class SchemaService {
     }
 
     private String safeGetCompatibility(String subject) {
-        try {
-            return client().getCompatibility(subject);
-        } catch (Exception e) {
-            return "UNKNOWN";
-        }
+        try { return client().getCompatibility(subject); }
+        catch (Exception e) { return "UNKNOWN"; }
     }
 }
