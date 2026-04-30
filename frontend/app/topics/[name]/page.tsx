@@ -1,33 +1,25 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Copy, Pause, Play, Send, Trash2 } from "lucide-react";
+import { ChevronLeft, Copy, Send, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardSub, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
 import { ConfirmModal } from "@/components/kafka/confirm-modal";
 import { ErrorState } from "@/components/kafka/error-state";
-import { JsonViewer } from "@/components/kafka/json-viewer";
-import { LagIndicator } from "@/components/kafka/lag-indicator";
+import { MessageBrowser } from "@/components/kafka/message-browser";
 import { PageHeader } from "@/components/kafka/page-header";
 import { produceModalEvents } from "@/components/kafka/produce-modal";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatusBadge } from "@/components/kafka/status-badge";
 import { TopicConfigsTab } from "@/components/kafka/topic-configs-tab";
-import { Switch } from "@/components/ui/switch";
-import { Select } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { messagesApi } from "@/lib/api/messages";
 import { topicsApi } from "@/lib/api/topics";
 import { fmt } from "@/lib/format";
-import type { Message } from "@/lib/types/kafka";
-import { useLiveTail } from "@/lib/stomp/use-tail";
 import { toast } from "@/components/kafka/toast";
 
 export default function TopicDetailPage() {
@@ -184,113 +176,3 @@ export default function TopicDetailPage() {
   );
 }
 
-function MessageBrowser({ topicName, partitionCount }: { topicName: string; partitionCount: number }) {
-  const [paused, setPaused] = React.useState(false);
-  const [tail, setTail] = React.useState(true);
-  const [partition, setPartition] = React.useState<string>("all");
-  const [filter, setFilter] = React.useState("");
-  const [selected, setSelected] = React.useState<Message | null>(null);
-
-  const histQ = useQuery({
-    queryKey: ["messages", topicName, partition],
-    queryFn: () => messagesApi.fetch(topicName, { partition: partition === "all" ? undefined : Number(partition), limit: 50 }),
-    enabled: !tail,
-  });
-
-  const liveTail = useLiveTail(tail ? topicName : null, tail, paused);
-  const messages = tail ? liveTail.messages : (histQ.data ?? []);
-
-  const filtered = messages.filter((m) => {
-    if (partition !== "all" && m.partition !== Number(partition)) return false;
-    if (filter && JSON.stringify(m.value).toLowerCase().indexOf(filter.toLowerCase()) === -1 && (m.key ?? "").indexOf(filter) === -1) return false;
-    return true;
-  });
-
-  return (
-    <div className={`grid gap-3.5 ${selected ? "[grid-template-columns:1fr_480px] max-[1100px]:grid-cols-1" : "grid-cols-1"}`}>
-      <div className="overflow-hidden rounded-3 border border-border bg-surface">
-        <div className="flex items-center gap-2 border-b border-border bg-bg-2 px-3 py-2.5">
-          <Button size="sm" variant={paused ? "primary" : "default"} onClick={() => setPaused((p) => !p)}>
-            {paused ? <><Play className="h-3 w-3" /> Resume</> : <><Pause className="h-3 w-3" /> Pause</>}
-          </Button>
-          <label className="flex items-center gap-1.5 text-[12px]">
-            <Switch checked={tail} onChange={(e) => setTail(e.target.checked)} aria-label="Live tail" />
-            Live tail
-            {tail && <span className="ml-1 inline-block h-1.5 w-1.5 animate-soft-pulse rounded-full bg-green" />}
-          </label>
-          <div className="h-4 w-px bg-border" />
-          <Select className="h-6 w-32" value={partition} onChange={(e) => setPartition(e.target.value)}>
-            <option value="all">All partitions</option>
-            {Array.from({ length: partitionCount }).map((_, i) => <option key={i} value={i}>Partition {i}</option>)}
-          </Select>
-          <Input className="h-6 w-60" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter by key, value…" aria-label="Filter messages" />
-          <div className="flex-1" />
-          <span className="font-mono text-[12px] text-fg-3">{filtered.length} msgs</span>
-        </div>
-        <div className="max-h-[560px] overflow-y-auto">
-          <table className="w-full border-collapse text-[12.5px]">
-            <thead>
-              <tr className="border-b border-border bg-bg-2 text-[11.5px] font-medium text-fg-3">
-                <th className="px-3 py-1.5 text-left">P</th>
-                <th className="px-3 py-1.5 text-left">Offset</th>
-                <th className="px-3 py-1.5 text-left">Timestamp</th>
-                <th className="px-3 py-1.5 text-left">Key</th>
-                <th className="px-3 py-1.5 text-left">Value</th>
-                <th className="px-3 py-1.5 text-right">Size</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((m, idx) => (
-                <tr
-                  key={m.partition + ":" + m.offset + ":" + idx}
-                  data-active={selected?.offset === m.offset && selected?.partition === m.partition}
-                  className="cursor-pointer border-b border-border-soft hover:bg-bg-hover data-[active=true]:bg-bg-active"
-                  onClick={() => setSelected(m)}
-                >
-                  <td className="px-3 py-1.5 font-mono tabular-nums text-fg-3">P{m.partition}</td>
-                  <td className="px-3 py-1.5 font-mono tabular-nums">{fmt.numFull(m.offset)}</td>
-                  <td className="px-3 py-1.5 font-mono text-fg-3">{fmt.time(m.timestamp)}</td>
-                  <td className="max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap px-3 py-1.5 font-mono text-accent">{m.key ?? "—"}</td>
-                  <td className="max-w-[360px] overflow-hidden text-ellipsis whitespace-nowrap px-3 py-1.5 font-mono text-fg-2">
-                    {typeof m.value === "string" ? m.value : JSON.stringify(m.value)}
-                  </td>
-                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-fg-3">{m.sizeBytes}B</td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr><td colSpan={6} className="px-3 py-12 text-center text-fg-3">{tail ? "Waiting for messages…" : "No messages"}</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {selected && (
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Message detail</CardTitle>
-              <CardSub className="font-mono">P{selected.partition} · offset {fmt.numFull(selected.offset)}</CardSub>
-            </div>
-            <Button variant="ghost" size="icon-sm" aria-label="Close" onClick={() => setSelected(null)}>×</Button>
-          </CardHeader>
-          <div className="grid grid-cols-[auto_1fr] gap-x-3.5 gap-y-1.5 border-b border-border p-3.5 text-[12px]">
-            <span className="text-fg-3">Timestamp</span><span className="font-mono">{new Date(selected.timestamp).toISOString()}</span>
-            <span className="text-fg-3">Key</span><span className="font-mono text-accent">{selected.key ?? "—"}</span>
-            <span className="text-fg-3">Format</span><span className="font-mono">{selected.valueFormat}</span>
-            <span className="text-fg-3">Size</span><span className="font-mono">{selected.sizeBytes} B</span>
-            <span className="text-fg-3">Headers</span>
-            <div className="font-mono text-[11.5px]">
-              {Object.entries(selected.headers).map(([k, v]) => (
-                <div key={k}><span className="text-fg-3">{k}:</span> {v}</div>
-              ))}
-            </div>
-          </div>
-          <div className="max-h-[360px] overflow-auto">
-            <JsonViewer data={selected.value as object} />
-          </div>
-        </Card>
-      )}
-    </div>
-  );
-}

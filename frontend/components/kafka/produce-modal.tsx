@@ -13,30 +13,35 @@ import { Textarea } from "@/components/ui/textarea";
 import { messagesApi } from "@/lib/api/messages";
 import { topicsApi } from "@/lib/api/topics";
 import { fmt } from "@/lib/format";
+import type { Message } from "@/lib/types/kafka";
 import { toast } from "./toast";
 
 export const produceModalEvents = new EventTarget();
 
+type SeedMessage = Pick<Message, "key" | "value" | "headers">;
+
 export function ProduceModalMount() {
   const [open, setOpen] = React.useState(false);
   const [defaultTopic, setDefaultTopic] = React.useState<string | null>(null);
+  const [seed, setSeed] = React.useState<SeedMessage | null>(null);
 
   React.useEffect(() => {
     const onOpen = (e: Event) => {
-      const detail = (e as CustomEvent<{ topic?: string }>).detail ?? {};
+      const detail = (e as CustomEvent<{ topic?: string; message?: SeedMessage }>).detail ?? {};
       setDefaultTopic(detail.topic ?? null);
+      setSeed(detail.message ?? null);
       setOpen(true);
     };
     produceModalEvents.addEventListener("open", onOpen as EventListener);
     return () => produceModalEvents.removeEventListener("open", onOpen as EventListener);
   }, []);
 
-  return <ProduceModal open={open} onOpenChange={setOpen} defaultTopic={defaultTopic} />;
+  return <ProduceModal open={open} onOpenChange={setOpen} defaultTopic={defaultTopic} seed={seed} />;
 }
 
 export function ProduceModal({
-  open, onOpenChange, defaultTopic,
-}: { open: boolean; onOpenChange: (o: boolean) => void; defaultTopic: string | null }) {
+  open, onOpenChange, defaultTopic, seed,
+}: { open: boolean; onOpenChange: (o: boolean) => void; defaultTopic: string | null; seed?: SeedMessage | null }) {
   const qc = useQueryClient();
   const topicsQ = useQuery({
     queryKey: ["topics-for-produce"],
@@ -54,8 +59,13 @@ export function ProduceModal({
     if (open) {
       setTopic(defaultTopic ?? topicsQ.data?.content?.[0]?.name ?? "");
       setPartition("auto");
+      if (seed) {
+        setKey(seed.key ?? "");
+        setValue(typeof seed.value === "string" ? seed.value : JSON.stringify(seed.value, null, 2));
+        setHeaders(Object.entries(seed.headers ?? {}).map(([k, v]) => ({ k, v })));
+      }
     }
-  }, [open, defaultTopic, topicsQ.data]);
+  }, [open, defaultTopic, seed, topicsQ.data]);
 
   const produceMut = useMutation({
     mutationFn: () =>

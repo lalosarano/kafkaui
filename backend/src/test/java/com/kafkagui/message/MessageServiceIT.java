@@ -33,7 +33,7 @@ class MessageServiceIT extends AbstractKafkaIT {
         assertEquals(0, produced.partition());
         assertTrue(produced.offset() >= 0);
 
-        var msgs = messageService.fetch(topic, 0, 0L, 10);
+        var msgs = messageService.fetch(topic, 0, 0L, null, null, 10);
         assertFalse(msgs.isEmpty());
         var m = msgs.get(0);
         assertEquals("k1", m.key());
@@ -44,6 +44,6 @@ class MessageServiceIT extends AbstractKafkaIT {
     @Test
     void fetch_unknown_topic_throws() {
         assertThrows(UnknownTopicOrPartitionException.class,
-                () -> messageService.fetch("nope-" + System.currentTimeMillis(), null, null, 5));
+                () -> messageService.fetch("nope-" + System.currentTimeMillis(), null, null, null, null, 5));
     }
 }

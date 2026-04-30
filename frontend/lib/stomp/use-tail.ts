@@ -1,19 +1,33 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { getActiveClusterId } from "@/lib/active-cluster";
 import { getStompClient } from "./client";
 import type { Message } from "@/lib/types/kafka";
 
-const MAX_BUFFER = 100;
+const MAX_BUFFER = 200;
 
-export function useLiveTail(topic: string | null, enabled: boolean, paused: boolean) {
+export type TailStatus = "idle" | "connecting" | "connected" | "error";
+
+export function useLiveTail(
+  topic: string | null,
+  enabled: boolean,
+  paused: boolean,
+  partition: number | null = null,
+) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [status, setStatus] = useState<TailStatus>("idle");
   const subRef = useRef<{ unsubscribe(): void } | null>(null);
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
 
   useEffect(() => {
-    if (!topic || !enabled) return;
+    if (!topic || !enabled) {
+      setStatus("idle");
+      return;
+    }
+    setStatus("connecting");
+    const clusterId = getActiveClusterId();
     let cancelled = false;
     let client: Awaited<ReturnType<typeof getStompClient>> | null = null;
 
@@ -26,14 +40,17 @@ export function useLiveTail(topic: string | null, enabled: boolean, paused: bool
           try {
             const msg = JSON.parse(frame.body) as Message;
             setMessages((prev) => [msg, ...prev].slice(0, MAX_BUFFER));
-          } catch { /* ignore malformed */ }
+          } catch { /* malformed frame */ }
         });
         subRef.current = sub;
         client.publish({
           destination: "/app/tail/start",
-          body: JSON.stringify({ topicName: topic }),
+          body: JSON.stringify({ clusterId, topicName: topic, partition }),
         });
-      } catch { /* swallow connect errors; UI shows status */ }
+        setStatus("connected");
+      } catch {
+        setStatus("error");
+      }
     })();
 
     return () => {
@@ -50,8 +67,9 @@ export function useLiveTail(topic: string | null, enabled: boolean, paused: bool
           });
         } catch { /* ignore */ }
       }
+      setStatus("idle");
     };
-  }, [topic, enabled]);
+  }, [topic, enabled, partition]);
 
-  return { messages, clear: () => setMessages([]) };
+  return { messages, status, clear: () => setMessages([]) };
 }

@@ -16,6 +16,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.PartitionInfo;
@@ -43,7 +44,13 @@ public class MessageService {
         this.decoder = decoder;
     }
 
-    public List<Message> fetch(String topic, Integer partition, Long fromOffset, int limit) {
+    public List<Message> fetch(
+            String topic,
+            Integer partition,
+            Long fromOffset,
+            Long fromTimestamp,
+            String seek,
+            int limit) {
         if (limit <= 0) limit = 100;
         if (limit > 1000) limit = 1000;
         String clusterId = ClusterContext.require();
@@ -62,14 +69,27 @@ public class MessageService {
             }
             consumer.assign(assigned);
 
+            // Pre-fetch begin/end so we can clamp every seek into a valid range.
+            Map<TopicPartition, Long> begins = consumer.beginningOffsets(assigned);
+            Map<TopicPartition, Long> ends = consumer.endOffsets(assigned);
             for (TopicPartition tp : assigned) {
+                long begin = begins.get(tp);
+                long end = ends.get(tp);
+                long target;
                 if (fromOffset != null) {
-                    consumer.seek(tp, fromOffset);
+                    target = fromOffset;
+                } else if (fromTimestamp != null) {
+                    Map<TopicPartition, OffsetAndTimestamp> resolved =
+                            consumer.offsetsForTimes(Map.of(tp, fromTimestamp));
+                    OffsetAndTimestamp ot = resolved.get(tp);
+                    target = ot != null ? ot.offset() : end;
+                } else if ("earliest".equalsIgnoreCase(seek)) {
+                    target = begin;
                 } else {
-                    Map<TopicPartition, Long> end = consumer.endOffsets(List.of(tp));
-                    long pos = Math.max(0, end.get(tp) - (long) limit);
-                    consumer.seek(tp, pos);
+                    target = end - (long) limit;
                 }
+                long clamped = Math.max(begin, Math.min(end, target));
+                consumer.seek(tp, clamped);
             }
 
             List<Message> out = new ArrayList<>(limit);
