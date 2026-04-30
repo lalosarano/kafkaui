@@ -37,10 +37,21 @@ export default function TopicDetailPage() {
 
   const deleteMut = useMutation({
     mutationFn: () => topicsApi.delete(name),
+    onMutate: async () => {
+      // Cancel and drop the topic-detail queries before the request fires so
+      // the next render of this page bails out of refetching a topic that's about
+      // to be deleted (otherwise the browser console gets a 404 GET response).
+      await qc.cancelQueries({ queryKey: ["topic", name] });
+      await qc.cancelQueries({ queryKey: ["topic-configs", name] });
+      await qc.cancelQueries({ queryKey: ["messages", name] });
+      qc.removeQueries({ queryKey: ["topic", name] });
+      qc.removeQueries({ queryKey: ["topic-configs", name] });
+      qc.removeQueries({ queryKey: ["messages", name] });
+      router.push("/topics");
+    },
     onSuccess: () => {
       toast({ tone: "success", msg: <>Topic <span className="font-mono">{name}</span> deleted</> });
       qc.invalidateQueries({ queryKey: ["topics"] });
-      router.push("/topics");
     },
     onError: (err: unknown) => toast({ tone: "error", msg: err instanceof Error ? err.message : "Delete failed" }),
   });

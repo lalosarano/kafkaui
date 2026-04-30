@@ -40,7 +40,13 @@
       "Bash(curl -s --max-time 5 -H \"X-Cluster-Id: default\" http://localhost:8080/api/v1/topics/demo.events/configs)",
       "Bash(curl -s --max-time 5 -X PUT -H \"Content-Type: application/json\" -H \"X-Cluster-Id: default\" -d '{\"retention.ms\":\"7200000\",\"max.message.bytes\":\"2097152\"}' http://localhost:8080/api/v1/topics/demo.events/configs)",
       "Bash(docker exec *)",
-      "Bash(curl -s --max-time 5 -H \"X-Cluster-Id: default\" \"http://localhost:8080/api/v1/topics/demo.events/messages?limit=3\")"
+      "Bash(curl -s --max-time 5 -H \"X-Cluster-Id: default\" \"http://localhost:8080/api/v1/topics/demo.events/messages?limit=3\")",
+      "Bash(curl -s --max-time 5 -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:3001/topics)",
+      "Bash(curl -s --max-time 5 -H \"X-Cluster-Id: default\" http://localhost:8080/api/v1/topics?showInternal=false)",
+      "Bash(curl -s --max-time 5 -H \"X-Cluster-Id: default\" http://localhost:8080/api/v1/topics/demo.events)",
+      "Bash(curl -s --max-time 5 -H \"X-Cluster-Id: default\" http://localhost:8080/api/v1/topics/_schemas)",
+      "Bash(curl -s --max-time 5 -H \"X-Cluster-Id: default\" \"http://localhost:8080/api/v1/topics?showInternal=true\")",
+      "Bash(npx playwright *)"
     ]
   }
 }
