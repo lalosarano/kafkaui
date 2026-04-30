@@ -5,8 +5,6 @@ import { getActiveClusterId } from "@/lib/active-cluster";
 import { getStompClient } from "./client";
 import type { Message } from "@/lib/types/kafka";
 
-const MAX_BUFFER = 200;
-
 export type TailStatus = "idle" | "connecting" | "connected" | "error";
 
 export function useLiveTail(
@@ -14,6 +12,7 @@ export function useLiveTail(
   enabled: boolean,
   paused: boolean,
   partition: number | null = null,
+  bufferSize: number = 1000,
 ) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [status, setStatus] = useState<TailStatus>("idle");
@@ -39,7 +38,7 @@ export function useLiveTail(
           if (pausedRef.current) return;
           try {
             const msg = JSON.parse(frame.body) as Message;
-            setMessages((prev) => [msg, ...prev].slice(0, MAX_BUFFER));
+            setMessages((prev) => [msg, ...prev].slice(0, bufferSize));
           } catch { /* malformed frame */ }
         });
         subRef.current = sub;
@@ -69,7 +68,7 @@ export function useLiveTail(
       }
       setStatus("idle");
     };
-  }, [topic, enabled, partition]);
+  }, [topic, enabled, partition, bufferSize]);
 
   return { messages, status, clear: () => setMessages([]) };
 }

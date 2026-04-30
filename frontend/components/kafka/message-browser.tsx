@@ -39,6 +39,7 @@ export function MessageBrowser({
   const [paused, setPaused] = React.useState(false);
   const [filter, setFilter] = React.useState("");
   const [limit, setLimit] = React.useState(100);
+  const [bufferSize, setBufferSize] = React.useState(1000);
   const [offsetInput, setOffsetInput] = React.useState("");
   const [tsInput, setTsInput] = React.useState(() => isoLocal(new Date(Date.now() - 60_000)));
   const [selected, setSelected] = React.useState<Message | null>(null);
@@ -50,7 +51,19 @@ export function MessageBrowser({
     tailEnabled,
     paused,
     partition === "all" ? null : Number(partition),
+    bufferSize,
   );
+
+  // Track scroll position so we can show a "N new — jump to top" pill when the user
+  // has scrolled away. Without this, new arrivals land off-screen and look invisible.
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const [scrolledAway, setScrolledAway] = React.useState(false);
+  const [newSinceScroll, setNewSinceScroll] = React.useState(0);
+  React.useEffect(() => { if (!scrolledAway) setNewSinceScroll(0); }, [scrolledAway]);
+  React.useEffect(() => {
+    if (scrolledAway && tailEnabled) setNewSinceScroll((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tail.messages.length]);
 
   // Historical fetch (any non-tail mode). Re-fetches when armedKey or topic/partition changes.
   const histQ = useQuery({
@@ -81,7 +94,7 @@ export function MessageBrowser({
 
   return (
     <div className={cn("grid gap-3.5", selected ? "[grid-template-columns:1fr_520px] max-[1200px]:grid-cols-1" : "grid-cols-1")}>
-      <div className="overflow-hidden rounded-3 border border-border bg-surface">
+      <div className="relative overflow-hidden rounded-3 border border-border bg-surface">
         <Toolbar
           seek={seek} setSeek={setSeek}
           partition={partition} setPartition={setPartition}
@@ -89,6 +102,7 @@ export function MessageBrowser({
           paused={paused} setPaused={setPaused}
           filter={filter} setFilter={setFilter}
           limit={limit} setLimit={setLimit}
+          bufferSize={bufferSize} setBufferSize={setBufferSize}
           offsetInput={offsetInput} setOffsetInput={setOffsetInput}
           tsInput={tsInput} setTsInput={setTsInput}
           tailStatus={tail.status}
@@ -98,9 +112,24 @@ export function MessageBrowser({
           onClearFilter={() => setFilter("")}
           totalLoaded={messages.length}
           totalShown={filtered.length}
+          atCapacity={tailEnabled && messages.length >= bufferSize}
         />
 
-        <div className="max-h-[560px] overflow-y-auto">
+        {tailEnabled && scrolledAway && newSinceScroll > 0 && (
+          <button
+            type="button"
+            onClick={() => { scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" }); setScrolledAway(false); }}
+            className="absolute left-1/2 top-[110px] z-10 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-accent/40 bg-accent-soft px-3 py-1 text-[11.5px] font-medium text-accent shadow-[var(--shadow-md)] hover:brightness-110"
+          >
+            ↑ {newSinceScroll} new message{newSinceScroll === 1 ? "" : "s"}
+          </button>
+        )}
+
+        <div
+          ref={scrollRef}
+          className="max-h-[560px] overflow-y-auto"
+          onScroll={(e) => setScrolledAway(e.currentTarget.scrollTop > 32)}
+        >
           <table className="w-full border-collapse text-[12.5px]">
             <thead>
               <tr className="border-b border-border bg-bg-2 text-[11.5px] font-medium text-fg-3">
@@ -164,6 +193,8 @@ function Toolbar(props: {
   setFilter: (f: string) => void;
   limit: number;
   setLimit: (n: number) => void;
+  bufferSize: number;
+  setBufferSize: (n: number) => void;
   offsetInput: string;
   setOffsetInput: (s: string) => void;
   tsInput: string;
@@ -175,6 +206,7 @@ function Toolbar(props: {
   onClearFilter: () => void;
   totalLoaded: number;
   totalShown: number;
+  atCapacity: boolean;
 }) {
   const seekDescription = SEEK_OPTIONS.find((o) => o.value === props.seek)?.hint ?? "";
   return (
@@ -215,6 +247,21 @@ function Toolbar(props: {
             <option value="1000">1000 msgs</option>
           </Select>
         )}
+        {props.tailEnabled && (
+          <Select
+            className="h-7 w-32"
+            value={String(props.bufferSize)}
+            onChange={(e) => props.setBufferSize(Number(e.target.value))}
+            aria-label="Tail buffer size"
+            title="How many recent messages to keep on screen. Older messages drop off as new ones arrive."
+          >
+            <option value="200">Buffer 200</option>
+            <option value="500">Buffer 500</option>
+            <option value="1000">Buffer 1000</option>
+            <option value="2000">Buffer 2000</option>
+            <option value="5000">Buffer 5000</option>
+          </Select>
+        )}
         {props.tailEnabled ? (
           <Button size="sm" variant={props.paused ? "primary" : "default"} onClick={() => props.setPaused(!props.paused)}>
             {props.paused ? <><Play className="h-3 w-3" /> Resume</> : <><Pause className="h-3 w-3" /> Pause</>}
@@ -230,6 +277,11 @@ function Toolbar(props: {
 
         <div className="ml-auto flex items-center gap-2">
           <ConnectionDot tailEnabled={props.tailEnabled} status={props.tailStatus} paused={props.paused} />
+          {props.atCapacity && (
+            <span title="Buffer is full; oldest messages are dropping off as new ones arrive" className="text-[11px] text-amber">
+              rotating
+            </span>
+          )}
           <span className="font-mono tabular-nums text-[12px] text-fg-3">
             {props.totalShown} / {props.totalLoaded}
           </span>
