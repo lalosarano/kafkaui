@@ -19,6 +19,7 @@ import { PageHeader } from "@/components/kafka/page-header";
 import { produceModalEvents } from "@/components/kafka/produce-modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/kafka/status-badge";
+import { TopicConfigsTab } from "@/components/kafka/topic-configs-tab";
 import { Switch } from "@/components/ui/switch";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -132,28 +133,7 @@ export default function TopicDetailPage() {
         </TabsContent>
 
         <TabsContent value="config">
-          <div className="overflow-hidden rounded-3 border border-border bg-surface">
-            <table className="w-full border-collapse text-[12.5px]">
-              <thead>
-                <tr className="border-b border-border bg-bg-2 text-[11.5px] font-medium text-fg-3">
-                  <th className="px-3 py-1.5 text-left">Property</th>
-                  <th className="px-3 py-1.5 text-left">Value</th>
-                  <th className="px-3 py-1.5 text-left">Source</th>
-                </tr>
-              </thead>
-              <tbody>
-                {detail.configs.map((c) => (
-                  <tr key={c.name} className="border-b border-border-soft last:border-b-0">
-                    <td className="px-3 py-1.5 font-mono text-fg">{c.name}</td>
-                    <td className="px-3 py-1.5 font-mono">{c.value ?? <span className="text-fg-4">—</span>}</td>
-                    <td className="px-3 py-1.5">
-                      {c.source.includes("DEFAULT") ? <span className="text-[11.5px] text-fg-3">default</span> : <Badge tone="accent">override</Badge>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TopicConfigsTab topicName={name} />
         </TabsContent>
 
         <TabsContent value="partitions">

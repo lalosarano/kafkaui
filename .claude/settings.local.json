@@ -36,7 +36,9 @@
       "Bash(curl -s --max-time 5 http://localhost:8080/api/v1/metrics/throughput)",
       "Bash(curl -s --max-time 3 http://localhost:8080/api/v1/metrics/throughput)",
       "Bash(curl -s --max-time 5 -X POST -H \"Content-Type: application/json\" -H \"X-Cluster-Id: default\" -d '{\"name\":\"demo.events\",\"partitions\":3,\"replicationFactor\":1}' http://localhost:8080/api/v1/topics)",
-      "Bash(curl -s --max-time 3 -X POST -H 'Content-Type: application/json' -H 'X-Cluster-Id: default' -d '{\"key\":\"k__TRACKED_VAR__\",\"value\":\"{\\\\\"i\\\\\":__TRACKED_VAR__,\\\\\"ts\\\\\":__CMDSUB_OUTPUT__}\"}' http://localhost:8080/api/v1/topics/demo.events/messages)"
+      "Bash(curl -s --max-time 3 -X POST -H 'Content-Type: application/json' -H 'X-Cluster-Id: default' -d '{\"key\":\"k__TRACKED_VAR__\",\"value\":\"{\\\\\"i\\\\\":__TRACKED_VAR__,\\\\\"ts\\\\\":__CMDSUB_OUTPUT__}\"}' http://localhost:8080/api/v1/topics/demo.events/messages)",
+      "Bash(curl -s --max-time 5 -H \"X-Cluster-Id: default\" http://localhost:8080/api/v1/topics/demo.events/configs)",
+      "Bash(curl -s --max-time 5 -X PUT -H \"Content-Type: application/json\" -H \"X-Cluster-Id: default\" -d '{\"retention.ms\":\"7200000\",\"max.message.bytes\":\"2097152\"}' http://localhost:8080/api/v1/topics/demo.events/configs)"
     ]
   }
 }
