@@ -10,22 +10,31 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.KafkaContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * Base class for tests that need a real Kafka. Boots a single Confluent Kafka
- * Testcontainer for the JVM, seeds the cluster store with a "default" cluster
- * pointing at the container, and sets ClusterContext for each test method.
+ * Base class for tests that need a real Kafka. Uses the Testcontainers singleton
+ * pattern: ONE Kafka container is started for the whole test JVM and shared by
+ * every IT class, so its mapped port stays constant. JUnit does not manage the
+ * container lifecycle (no {@code @Testcontainers}/{@code @Container}); Ryuk reaps
+ * it at JVM exit.
+ *
+ * <p>This matters because the Spring application context is cached and reused
+ * across IT classes, and {@link com.kafkagui.cluster.ClusterRegistry} pools an
+ * AdminClient + Producer per cluster id. A per-class container (different port
+ * each class) would leave those pooled "default" clients pointing at a stopped
+ * broker, which then reconnect-spam {@code NetworkClient} WARNs for the rest of
+ * the suite. A single shared container keeps the pooled clients valid.
  */
 @SpringBootTest
-@Testcontainers
 public abstract class AbstractKafkaIT {
 
-    @Container
     static final KafkaContainer KAFKA = new KafkaContainer(
             DockerImageName.parse("confluentinc/cp-kafka:7.5.3"));
+
+    static {
+        KAFKA.start();
+    }
 
     static Path tempStore;
 
