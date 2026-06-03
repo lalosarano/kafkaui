@@ -24,17 +24,17 @@ import { cn } from "@/lib/utils";
 type SeekMode = "tail" | "end" | "begin" | "offset" | "timestamp";
 
 const SEEK_OPTIONS: { value: SeekMode; label: string; hint: string }[] = [
+  { value: "end", label: "Latest", hint: "The most recent records on the topic" },
+  { value: "begin", label: "Earliest", hint: "The oldest available records" },
   { value: "tail", label: "Live tail", hint: "Stream new records as they arrive" },
-  { value: "end", label: "From end", hint: "Last N records on the partition" },
-  { value: "begin", label: "From beginning", hint: "Earliest available records" },
   { value: "offset", label: "From offset", hint: "Start at a specific offset" },
-  { value: "timestamp", label: "From timestamp", hint: "Start at the first record on or after a date" },
+  { value: "timestamp", label: "From time", hint: "First record on or after a date/time" },
 ];
 
 export function MessageBrowser({
   topicName, partitionCount,
 }: { topicName: string; partitionCount: number }) {
-  const [seek, setSeek] = React.useState<SeekMode>("tail");
+  const [seek, setSeek] = React.useState<SeekMode>("end");
   const [partition, setPartition] = React.useState<string>("all");
   const [paused, setPaused] = React.useState(false);
   const [filter, setFilter] = React.useState("");

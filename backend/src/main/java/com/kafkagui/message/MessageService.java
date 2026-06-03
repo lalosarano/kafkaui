@@ -94,8 +94,42 @@ public class MessageService {
                 consumer.seek(tp, clamped);
             }
 
-            List<Message> out = new ArrayList<>(limit);
             long deadline = System.currentTimeMillis() + FETCH_DEADLINE_MS;
+            boolean latest = fromOffset == null && fromTimestamp == null && !"earliest".equalsIgnoreCase(seek);
+
+            if (latest && assigned.size() > 1) {
+                // Fair "latest" across partitions: each partition was seeked back `limit` from
+                // its end, so drain every partition up to its snapshot end and then keep only
+                // the globally newest `limit` records. Otherwise a single busy partition could
+                // fill the whole result and hide newer records on the others.
+                List<Message> collected = new ArrayList<>();
+                long cap = (long) limit * assigned.size();
+                while (System.currentTimeMillis() < deadline && collected.size() < cap) {
+                    ConsumerRecords<byte[], byte[]> records = consumer.poll(Duration.ofMillis(POLL_TIMEOUT_MS));
+                    for (ConsumerRecord<byte[], byte[]> r : records) {
+                        long end = ends.get(new TopicPartition(r.topic(), r.partition()));
+                        if (r.offset() < end) collected.add(toMessage(clusterId, r));
+                    }
+                    boolean drained = true;
+                    for (TopicPartition tp : assigned) {
+                        if (consumer.position(tp) < ends.get(tp)) { drained = false; break; }
+                    }
+                    if (drained) break;
+                }
+                // Newest `limit` by timestamp (tie-break offset), returned ascending like the other modes.
+                collected.sort((a, b) -> {
+                    int c = Long.compare(b.timestamp(), a.timestamp());
+                    return c != 0 ? c : Long.compare(b.offset(), a.offset());
+                });
+                List<Message> newest = new ArrayList<>(collected.subList(0, Math.min(limit, collected.size())));
+                newest.sort((a, b) -> {
+                    int c = Long.compare(a.timestamp(), b.timestamp());
+                    return c != 0 ? c : Long.compare(a.offset(), b.offset());
+                });
+                return newest;
+            }
+
+            List<Message> out = new ArrayList<>(limit);
             while (out.size() < limit && System.currentTimeMillis() < deadline) {
                 ConsumerRecords<byte[], byte[]> records = consumer.poll(Duration.ofMillis(POLL_TIMEOUT_MS));
                 if (records.isEmpty()) break;
