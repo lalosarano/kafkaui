@@ -114,6 +114,20 @@ public class ClusterRegistry {
         return AdminClient.create(commonProps(cfg, requestTimeoutMs));
     }
 
+    /**
+     * AdminClient tuned for a one-shot reachability probe: it must fail fast against an
+     * unreachable broker instead of retrying for the default 60s api timeout. Bounds the
+     * overall api timeout and the per-connection TCP setup timeout to the probe budget.
+     */
+    private static AdminClient buildProbeAdminClient(ClusterConfig cfg, int timeoutMs) {
+        Properties p = commonProps(cfg, timeoutMs);
+        p.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, timeoutMs);
+        p.put(AdminClientConfig.RECONNECT_BACKOFF_MAX_MS_CONFIG, 1000);
+        p.put("socket.connection.setup.timeout.ms", Math.min(2000, timeoutMs));
+        p.put("socket.connection.setup.timeout.max.ms", timeoutMs);
+        return AdminClient.create(p);
+    }
+
     private static Producer<byte[], byte[]> buildProducer(ClusterConfig cfg) {
         Properties p = commonProps(cfg, 30_000);
         p.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
@@ -135,7 +149,8 @@ public class ClusterRegistry {
      */
     public ClusterTestResult test(ClusterConfig cfg, long timeoutMs) {
         long start = System.currentTimeMillis();
-        try (AdminClient admin = buildAdminClient(cfg.id() == null ? cfg.withId("__probe__") : cfg, (int) timeoutMs)) {
+        AdminClient admin = buildProbeAdminClient(cfg.id() == null ? cfg.withId("__probe__") : cfg, (int) timeoutMs);
+        try {
             DescribeClusterResult res = admin.describeCluster();
             var nodes = res.nodes().get(timeoutMs, TimeUnit.MILLISECONDS);
             var controller = res.controller().get(timeoutMs, TimeUnit.MILLISECONDS);
@@ -154,6 +169,11 @@ public class ClusterRegistry {
             Throwable cause = e;
             while (cause.getCause() != null && cause.getCause() != cause) cause = cause.getCause();
             return ClusterTestResult.failure(cause.getClass().getSimpleName(), cause.getMessage());
+        } finally {
+            // Close hard: describeCluster() may still be retrying against an unreachable
+            // broker, and a no-arg close() would block until those calls expire (~60s),
+            // making the endpoint hang long after our own deadline fired.
+            admin.close(Duration.ofMillis(500));
         }
     }
 }
