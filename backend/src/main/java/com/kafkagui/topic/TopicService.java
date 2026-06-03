@@ -13,6 +13,7 @@ import com.kafkagui.topic.dto.TopicDetail;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,17 +50,79 @@ public class TopicService {
         Set<String> names = await(adminClient.listTopics(new ListTopicsOptions().listInternal(showInternal)).names());
         Map<String, TopicDescription> descs = await(adminClient.describeTopics(names).allTopicNames());
 
+        // One pass to collect every partition and every broker that hosts a replica.
+        List<TopicPartition> allTps = new ArrayList<>();
+        Set<Integer> brokerIds = new HashSet<>();
+        for (TopicDescription td : descs.values()) {
+            for (var p : td.partitions()) {
+                allTps.add(new TopicPartition(td.name(), p.partition()));
+                for (Node r : p.replicas()) brokerIds.add(r.id());
+            }
+        }
+
+        // Message counts (latest - earliest) and leader-replica disk sizes, all batched.
+        Map<TopicPartition, Long> earliest = offsets(adminClient, allTps, OffsetSpec.earliest());
+        Map<TopicPartition, Long> latest = offsets(adminClient, allTps, OffsetSpec.latest());
+        Map<Integer, Map<TopicPartition, Long>> dirSizes = describeDirSizes(adminClient, brokerIds);
+        boolean haveSize = !dirSizes.isEmpty();
+
         List<Topic> all = descs.values().stream()
                 .filter(td -> q == null || q.isBlank() || td.name().toLowerCase().contains(q.toLowerCase()))
-                .map(td -> new Topic(
-                        td.name(),
-                        td.partitions().size(),
-                        td.partitions().isEmpty() ? 0 : td.partitions().get(0).replicas().size(),
-                        td.isInternal()
-                ))
+                .map(td -> {
+                    long messages = 0;
+                    long bytes = 0;
+                    for (var p : td.partitions()) {
+                        TopicPartition tp = new TopicPartition(td.name(), p.partition());
+                        long lo = earliest.getOrDefault(tp, 0L);
+                        long hi = latest.getOrDefault(tp, lo);
+                        messages += Math.max(0, hi - lo);
+                        if (haveSize && p.leader() != null) {
+                            Map<TopicPartition, Long> brokerMap = dirSizes.get(p.leader().id());
+                            if (brokerMap != null) bytes += brokerMap.getOrDefault(tp, 0L);
+                        }
+                    }
+                    return new Topic(
+                            td.name(),
+                            td.partitions().size(),
+                            td.partitions().isEmpty() ? 0 : td.partitions().get(0).replicas().size(),
+                            td.isInternal(),
+                            messages,
+                            haveSize ? bytes : -1L
+                    );
+                })
                 .sorted((a, b) -> a.name().compareTo(b.name()))
                 .toList();
         return PageResponse.of(all, page, size);
+    }
+
+    private Map<TopicPartition, Long> offsets(AdminClient admin, List<TopicPartition> tps, OffsetSpec spec) {
+        if (tps.isEmpty()) return Map.of();
+        Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> res =
+                await(admin.listOffsets(tps.stream().collect(Collectors.toMap(t -> t, t -> spec))).all());
+        Map<TopicPartition, Long> out = new HashMap<>();
+        for (var e : res.entrySet()) out.put(e.getKey(), e.getValue().offset());
+        return out;
+    }
+
+    /** brokerId -> (TopicPartition -> bytes), or empty if describeLogDirs is unavailable. */
+    private Map<Integer, Map<TopicPartition, Long>> describeDirSizes(AdminClient admin, Set<Integer> brokerIds) {
+        Map<Integer, Map<TopicPartition, Long>> out = new HashMap<>();
+        if (brokerIds.isEmpty()) return out;
+        try {
+            var dirs = await(admin.describeLogDirs(brokerIds).allDescriptions());
+            for (var e : dirs.entrySet()) {
+                Map<TopicPartition, Long> perTp = new HashMap<>();
+                for (var d : e.getValue().values()) {
+                    for (var ri : d.replicaInfos().entrySet()) {
+                        perTp.merge(ri.getKey(), ri.getValue().size(), Long::sum);
+                    }
+                }
+                out.put(e.getKey(), perTp);
+            }
+        } catch (Exception ignored) {
+            // describeLogDirs not supported — sizes will be reported as unavailable (-1).
+        }
+        return out;
     }
 
     public TopicDetail get(String name) {
@@ -109,7 +172,7 @@ public class TopicService {
             nt.configs(req.configs());
         }
         await(client().createTopics(List.of(nt)).all());
-        return new Topic(req.name(), req.partitions(), req.replicationFactor(), false);
+        return new Topic(req.name(), req.partitions(), req.replicationFactor(), false, 0L, 0L);
     }
 
     public void delete(String name) {

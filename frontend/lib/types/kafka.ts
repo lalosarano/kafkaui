@@ -75,6 +75,8 @@ export type Topic = {
   partitions: number;
   replicationFactor: number;
   internal: boolean;
+  messages: number;
+  sizeBytes: number;
 };
 
 export type Partition = {

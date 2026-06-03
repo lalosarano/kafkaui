@@ -17,6 +17,7 @@ import { PageHeader } from "@/components/kafka/page-header";
 import { produceModalEvents } from "@/components/kafka/produce-modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { topicsApi } from "@/lib/api/topics";
+import { fmt } from "@/lib/format";
 import type { Topic } from "@/lib/types/kafka";
 import { toast } from "@/components/kafka/toast";
 
@@ -71,6 +72,21 @@ function TopicsPageInner() {
       },
       { accessorKey: "partitions", header: "Partitions", meta: { align: "right" }, cell: ({ row }) => <span className="font-mono tabular-nums">{row.original.partitions}</span> },
       { accessorKey: "replicationFactor", header: "RF", meta: { align: "right" }, cell: ({ row }) => <span className="font-mono tabular-nums">{row.original.replicationFactor}</span> },
+      {
+        accessorKey: "messages",
+        header: "Messages",
+        meta: { align: "right" },
+        cell: ({ row }) => <span className="font-mono tabular-nums">{fmt.numFull(row.original.messages)}</span>,
+      },
+      {
+        accessorKey: "sizeBytes",
+        header: "Size",
+        meta: { align: "right" },
+        cell: ({ row }) =>
+          row.original.sizeBytes < 0
+            ? <span className="text-fg-4">—</span>
+            : <span className="font-mono tabular-nums">{fmt.bytes(row.original.sizeBytes / 1_048_576)}</span>,
+      },
       {
         id: "actions",
         header: () => null,
