@@ -1,12 +1,17 @@
 "use client";
 
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { Bell, HelpCircle, Search } from "lucide-react";
+import { Bell, Github, HelpCircle, Moon, Search, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { commandPaletteEvents } from "./command-palette";
+import { alertsApi } from "@/lib/api/metrics";
+import { getActiveClusterId, subscribeActiveCluster } from "@/lib/active-cluster";
 import { cn } from "@/lib/utils";
+
+const REPO_URL = "https://github.com/lalosarano/kafkaui";
 
 export function Topbar() {
   const router = useRouter();
@@ -15,6 +20,20 @@ export function Topbar() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Track the active cluster so the alert count only queries when one is selected.
+  const [activeCluster, setActiveCluster] = useState<string | null>(null);
+  useEffect(() => {
+    setActiveCluster(getActiveClusterId());
+    return subscribeActiveCluster(setActiveCluster);
+  }, []);
+  const alerts = useQuery({
+    queryKey: ["alerts"],
+    queryFn: alertsApi.list,
+    refetchInterval: 30_000,
+    enabled: !!activeCluster,
+  });
+  const activeAlerts = (alerts.data ?? []).filter((a) => a.severity !== "info").length;
 
   const crumbs: { label: string; href?: string; current?: boolean; mono?: boolean }[] = [
     { label: "kafka-cluster", href: "/" },
@@ -71,17 +90,51 @@ export function Topbar() {
           variant="ghost"
           size="icon"
           aria-label="Toggle theme"
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           className="text-fg-3"
         >
-          <span className="text-[10px] uppercase">{theme === "dark" ? "Lt" : "Dk"}</span>
+          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
       )}
-      <Button variant="ghost" size="icon" aria-label="Alerts" className="text-fg-3">
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={activeAlerts > 0 ? `${activeAlerts} active alerts` : "Alerts"}
+        title="Alerts"
+        onClick={() => router.push("/")}
+        className="relative text-fg-3"
+      >
         <Bell className="h-4 w-4" />
+        {activeAlerts > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 grid h-3.5 min-w-[14px] place-items-center rounded-full bg-red px-0.5 text-[9px] font-semibold leading-none text-white">
+            {activeAlerts > 9 ? "9+" : activeAlerts}
+          </span>
+        )}
       </Button>
-      <Button variant="ghost" size="icon" aria-label="Help" className="text-fg-3">
-        <HelpCircle className="h-4 w-4" />
+      <Button
+        asChild
+        variant="ghost"
+        size="icon"
+        aria-label="Documentation"
+        title="Documentation"
+        className="text-fg-3"
+      >
+        <a href={`${REPO_URL}#readme`} target="_blank" rel="noopener noreferrer">
+          <HelpCircle className="h-4 w-4" />
+        </a>
+      </Button>
+      <Button
+        asChild
+        variant="ghost"
+        size="icon"
+        aria-label="GitHub repository"
+        title="GitHub repository"
+        className="text-fg-3"
+      >
+        <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
+          <Github className="h-4 w-4" />
+        </a>
       </Button>
     </div>
   );
