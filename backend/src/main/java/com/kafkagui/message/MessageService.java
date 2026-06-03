@@ -57,8 +57,10 @@ public class MessageService {
 
         try (KafkaConsumer<byte[], byte[]> consumer = consumerFactory.create(clusterId, "fetch")) {
             List<TopicPartition> assigned = new ArrayList<>();
+            // partitionsFor returns null or an empty list for a topic that doesn't exist
+            // (which of the two depends on broker auto-create config and client version).
             List<PartitionInfo> infos = consumer.partitionsFor(topic);
-            if (infos == null) {
+            if (infos == null || infos.isEmpty()) {
                 throw new org.apache.kafka.common.errors.UnknownTopicOrPartitionException(
                         "Topic not found: " + topic);
             }
