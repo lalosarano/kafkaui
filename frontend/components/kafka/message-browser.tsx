@@ -90,7 +90,15 @@ export function MessageBrowser({
   });
 
   const messages: Message[] = tailEnabled ? tail.messages : (histQ.data ?? []);
-  const filtered = React.useMemo(() => filterMessages(messages, filter, partition), [messages, filter, partition]);
+  const filtered = React.useMemo(() => {
+    const out = filterMessages(messages, filter, partition);
+    // "From end" should surface the most recent record first (like the live tail).
+    // The server returns ascending offset order, so flip to newest-first here.
+    if (seek === "end") {
+      return [...out].sort((a, b) => b.timestamp - a.timestamp || b.offset - a.offset);
+    }
+    return out;
+  }, [messages, filter, partition, seek]);
 
   return (
     <div className={cn("grid gap-3.5", selected ? "[grid-template-columns:1fr_520px] max-[1200px]:grid-cols-1" : "grid-cols-1")}>
@@ -263,15 +271,15 @@ function Toolbar(props: {
           </Select>
         )}
         {props.tailEnabled ? (
-          <Button size="sm" variant={props.paused ? "primary" : "default"} onClick={() => props.setPaused(!props.paused)}>
+          <Button variant={props.paused ? "primary" : "default"} onClick={() => props.setPaused(!props.paused)}>
             {props.paused ? <><Play className="h-3 w-3" /> Resume</> : <><Pause className="h-3 w-3" /> Pause</>}
           </Button>
         ) : (
-          <Button size="sm" onClick={props.onRefresh}>
+          <Button onClick={props.onRefresh}>
             <RefreshCcw className="h-3 w-3" /> Fetch
           </Button>
         )}
-        <Button size="sm" variant="ghost" onClick={props.onClear} disabled={props.totalLoaded === 0}>
+        <Button variant="ghost" onClick={props.onClear} disabled={props.totalLoaded === 0}>
           <X className="h-3 w-3" /> Clear
         </Button>
 
