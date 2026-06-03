@@ -51,6 +51,8 @@ export type ClusterInfo = {
   totalPartitions: number;
   underReplicatedPartitions: number;
   offlinePartitions: number;
+  totalReplicas: number;
+  inSyncReplicas: number;
 };
 
 export type Broker = {
@@ -59,6 +61,13 @@ export type Broker = {
   port: number;
   rack: string | null;
   isController: boolean;
+  partitions: number;
+  leaders: number;
+  onlinePartitions: number;
+  partitionSkew: number;
+  leaderSkew: number;
+  diskBytes: number;
+  logSegments: number;
 };
 
 export type Topic = {

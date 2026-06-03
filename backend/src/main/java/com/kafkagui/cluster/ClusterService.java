@@ -40,10 +40,12 @@ public class ClusterService {
         DescribeTopicsResult dtr = adminClient.describeTopics(topicNames);
         Map<String, TopicDescription> descs = await(dtr.allTopicNames());
 
-        int totalPartitions = 0, urp = 0, offline = 0;
+        int totalPartitions = 0, urp = 0, offline = 0, totalReplicas = 0, inSync = 0;
         for (TopicDescription td : descs.values()) {
             for (TopicPartitionInfo p : td.partitions()) {
                 totalPartitions++;
+                totalReplicas += p.replicas().size();
+                inSync += p.isr().size();
                 if (p.leader() == null) offline++;
                 if (p.isr().size() < p.replicas().size()) urp++;
             }
@@ -57,7 +59,9 @@ public class ClusterService {
                 topicNames.size(),
                 totalPartitions,
                 urp,
-                offline
+                offline,
+                totalReplicas,
+                inSync
         );
     }
 

@@ -8,5 +8,7 @@ public record ClusterInfo(
         int totalTopics,
         int totalPartitions,
         int underReplicatedPartitions,
-        int offlinePartitions
+        int offlinePartitions,
+        int totalReplicas,
+        int inSyncReplicas
 ) {}
