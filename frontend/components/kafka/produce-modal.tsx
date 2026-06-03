@@ -156,7 +156,7 @@ export function ProduceModal({
           </div>
         </DialogBody>
         <DialogFooter>
-          <Button variant="ghost" className="mr-auto" disabled>{/* STUB: copy as kcat — tracked in FOLLOWUPS */}Copy as kcat</Button>
+          <Button variant="ghost" className="mr-auto" disabled>{/* STUB: copy as kcat */}Copy as kcat</Button>
           <Button onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button variant="primary" onClick={() => produceMut.mutate()} disabled={!topic || !value || produceMut.isPending}>
             <Send className="h-3 w-3" /> Produce

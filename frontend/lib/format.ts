@@ -1,4 +1,4 @@
-// Number / time / size formatting matching the design (.designs/shared.jsx).
+// Number / time / size formatting helpers shared across the UI.
 
 export const fmt = {
   num(n: number | null | undefined): string {

@@ -29,6 +29,11 @@ export type ApiError = {
   details?: string;
 };
 
+export type HostAlias = {
+  hostname: string;
+  ip: string;
+};
+
 export type PageResponse<T> = {
   content: T[];
   totalElements: number;

@@ -51,15 +51,15 @@
 
 ## REST/WS contract
 
-See `PLAN.md` for full endpoint and WS topic listing. JSON shapes match `frontend/lib/types/kafka.ts` exactly.
+See the `*Controller` classes under `backend/src/main/java/com/kafkagui/` for the full endpoint and WS topic listing. JSON shapes match `frontend/lib/types/kafka.ts` exactly.
 
 ## Auth model (placeholder)
 
-v0.1 has no auth. CORS is open only to `http://localhost:3000`. The intended next step is a thin reverse-proxy header check + an upstream OAuth2/OIDC provider; the backend reads `X-User` for actor logging, but the proxy is responsible for verifying the JWT. See `FOLLOWUPS.md`.
+v0.1 has no auth. CORS is open only to `http://localhost:3000`. The intended next step is a thin reverse-proxy header check + an upstream OAuth2/OIDC provider; the backend reads `X-User` for actor logging, but the proxy is responsible for verifying the JWT.
 
 ## Connection-config storage strategy
 
-v0.1 stores cluster connection (bootstrap servers, security protocol, SASL config, schema-registry URL) in `application.yml`. There is no UI-driven cluster switcher. When multi-cluster lands, connection configs will live in a `clusters` table (Postgres) and the AdminClient will be an `Map<clusterId, AdminClient>` cache wrapped in a `ClusterRegistry` bean. See `FOLLOWUPS.md`.
+v0.1 stores cluster connection (bootstrap servers, security protocol, SASL config, schema-registry URL) in `application.yml`. There is no UI-driven cluster switcher. When multi-cluster lands, connection configs will live in a `clusters` table (Postgres) and the AdminClient will be an `Map<clusterId, AdminClient>` cache wrapped in a `ClusterRegistry` bean.
 
 ## Test strategy
 

@@ -2,11 +2,13 @@
 
 ## Local setup
 
-Prerequisites: Java 21, Maven 3.9+, Node 20+, Docker.
+Prerequisites: Docker (for the containerized app), or Java 21 + Maven 3.9+ + Node 20+ for native dev.
+Kafka GUI is BYO-Kafka — point it at your own broker via the UI (or the `KAFKAGUI_BOOTSTRAP_SERVERS` env var).
 
 ```bash
-make kafka-up      # start Kafka + Schema Registry
-make dev           # backend (:8080) + frontend (:3000)
+make up            # docker compose up -d (backend :8080 + frontend :3001)
+# — or, native dev with hot reload —
+make dev           # backend (:8080) + frontend (:3000) in parallel
 ```
 
 ## Workflow
@@ -27,4 +29,4 @@ make dev           # backend (:8080) + frontend (:3000)
 
 ## Structure
 
-See `ARCHITECTURE.md` and `CLAUDE.md`.
+See `ARCHITECTURE.md`.

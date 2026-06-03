@@ -85,7 +85,7 @@ public class SchemaService {
         Optional<ParsedSchema> parsed = switch (type.toUpperCase()) {
             case "AVRO" -> new AvroSchemaProvider().parseSchema(body, List.of(), false, false);
             case "JSON", "PROTOBUF" -> throw new UnsupportedOperationException(
-                    type + " compatibility check is not supported in v0.1 — see FOLLOWUPS.md");
+                    type + " compatibility check is not supported in v0.1.");
             default -> throw new IllegalArgumentException("Unknown schemaType: " + type);
         };
         return parsed.orElseThrow(() -> new IllegalArgumentException("Could not parse " + type + " schema"));

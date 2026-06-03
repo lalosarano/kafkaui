@@ -52,3 +52,6 @@ pnpm-debug.log*
 *.seed
 *.tgz
 .eslintcache
+
+# Claude Code harness settings (local only)
+.claude/

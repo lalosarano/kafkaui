@@ -1,19 +1,23 @@
-.PHONY: dev test build kafka-up kafka-down clean help
+.PHONY: up down logs dev dev-backend dev-frontend test build clean help
 
 help:
 	@echo "Targets:"
-	@echo "  kafka-up    docker-compose up -d (kafka + schema-registry)"
-	@echo "  kafka-down  docker-compose down"
-	@echo "  dev         backend (8080) and frontend (3000) in parallel"
-	@echo "  test        backend mvn verify + frontend npm test"
-	@echo "  build       backend mvn package + frontend next build"
-	@echo "  clean       wipe target/ and .next/"
+	@echo "  up        docker compose up -d (backend + frontend, BYO Kafka)"
+	@echo "  down      docker compose down"
+	@echo "  logs      tail compose logs"
+	@echo "  dev       run backend (:8080) and frontend (:3000) natively in parallel"
+	@echo "  test      backend mvn verify + frontend npm test"
+	@echo "  build     backend mvn package + frontend next build"
+	@echo "  clean     wipe target/ and .next/"
 
-kafka-up:
+up:
 	docker compose up -d
 
-kafka-down:
+down:
 	docker compose down
+
+logs:
+	docker compose logs -f
 
 dev:
 	@echo "Starting backend on :8080 and frontend on :3000…"
