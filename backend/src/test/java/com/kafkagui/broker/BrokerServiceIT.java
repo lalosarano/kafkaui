@@ -32,4 +32,16 @@ class BrokerServiceIT extends AbstractKafkaIT {
         assertEquals(0.0, b.leaderSkew());
         assertEquals(0.0, b.partitionSkew());
     }
+
+    @Test
+    void configs_returns_the_full_broker_config_set() {
+        List<Broker> brokers = brokerService.list();
+        assertFalse(brokers.isEmpty());
+        int id = brokers.get(0).id();
+
+        var configs = brokerService.configs(id);
+        assertTrue(configs.size() > 50, "a broker exposes hundreds of configs, not a curated subset");
+        assertTrue(configs.stream().anyMatch(c -> c.name().equals("log.retention.ms")),
+                "expected a well-known broker config to be present");
+    }
 }

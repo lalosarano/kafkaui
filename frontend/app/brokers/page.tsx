@@ -2,7 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { type ColumnDef } from "@tanstack/react-table";
-import { RefreshCcw } from "lucide-react";
+import { ChevronRight, RefreshCcw } from "lucide-react";
+import { useRouter } from "next/navigation";
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import type { Broker } from "@/lib/types/kafka";
 import { cn } from "@/lib/utils";
 
 export default function BrokersPage() {
+  const router = useRouter();
   const brokersQ = useQuery({ queryKey: ["brokers"], queryFn: brokersApi.list, refetchInterval: 30_000 });
   const clusterQ = useQuery({ queryKey: ["cluster"], queryFn: clusterApi.current, refetchInterval: 30_000 });
   const ci = clusterQ.data;
@@ -67,6 +69,7 @@ export default function BrokersPage() {
         },
       },
       { id: "status", header: "Status", cell: () => <StatusBadge state="healthy" /> },
+      { id: "go", header: "", cell: () => <ChevronRight className="h-3.5 w-3.5 text-fg-4" /> },
     ],
     [],
   );
@@ -108,7 +111,10 @@ export default function BrokersPage() {
         />
       </KpiRow>
 
-      {brokersQ.isLoading ? <Skeleton className="h-64 w-full" /> : <DataTable columns={columns} data={brokersQ.data ?? []} />}
+      {brokersQ.isLoading
+        ? <Skeleton className="h-64 w-full" />
+        : <DataTable columns={columns} data={brokersQ.data ?? []} onRowClick={(b) => router.push(`/brokers/${b.id}`)} />}
+      <p className="mt-2 text-[11.5px] text-fg-4">Select a broker to view and edit its full configuration.</p>
     </div>
   );
 }

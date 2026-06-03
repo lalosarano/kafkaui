@@ -3,14 +3,19 @@ package com.kafkagui.broker;
 import static com.kafkagui.common.KafkaFutures.await;
 
 import com.kafkagui.broker.dto.Broker;
+import com.kafkagui.broker.dto.BrokerConfigEntry;
 import com.kafkagui.cluster.ClusterContext;
 import com.kafkagui.cluster.ClusterRegistry;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AlterConfigOp;
+import org.apache.kafka.clients.admin.Config;
+import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.DescribeClusterResult;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.LogDirDescription;
@@ -18,6 +23,7 @@ import org.apache.kafka.clients.admin.ReplicaInfo;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.TopicPartitionInfo;
+import org.apache.kafka.common.config.ConfigResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -82,6 +88,31 @@ public class BrokerService {
                 })
                 .sorted((a, b) -> Integer.compare(a.id(), b.id()))
                 .toList();
+    }
+
+    /** All configs for a broker (~200-300 entries) via describeConfigs(BROKER). */
+    public List<BrokerConfigEntry> configs(int brokerId) {
+        AdminClient adminClient = registry.adminClient(ClusterContext.require());
+        ConfigResource resource = new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId));
+        Config config = await(adminClient.describeConfigs(List.of(resource)).all()).get(resource);
+        return config.entries().stream()
+                .map(e -> new BrokerConfigEntry(e.name(), e.value(), e.source().name(), e.isReadOnly(), e.isSensitive()))
+                .sorted((a, b) -> a.name().compareTo(b.name()))
+                .toList();
+    }
+
+    /** Dynamically alter broker configs. Static (read-only) configs are rejected by the broker. */
+    public List<BrokerConfigEntry> updateConfigs(int brokerId, Map<String, String> updates) {
+        AdminClient adminClient = registry.adminClient(ClusterContext.require());
+        ConfigResource resource = new ConfigResource(ConfigResource.Type.BROKER, String.valueOf(brokerId));
+        List<AlterConfigOp> ops = new ArrayList<>();
+        for (var e : updates.entrySet()) {
+            ops.add(new AlterConfigOp(new ConfigEntry(e.getKey(), e.getValue()), AlterConfigOp.OpType.SET));
+        }
+        Map<ConfigResource, Collection<AlterConfigOp>> arg = new HashMap<>();
+        arg.put(resource, ops);
+        await(adminClient.incrementalAlterConfigs(arg).all());
+        return configs(brokerId);
     }
 
     /** @return brokerId -> [totalBytes, replicaEntries], or empty if describeLogDirs is unavailable. */
