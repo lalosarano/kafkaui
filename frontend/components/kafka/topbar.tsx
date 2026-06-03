@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { commandPaletteEvents } from "./command-palette";
 import { alertsApi } from "@/lib/api/metrics";
+import { clusterApi } from "@/lib/api/cluster";
 import { getActiveClusterId, subscribeActiveCluster } from "@/lib/active-cluster";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,22 @@ export function Topbar() {
     enabled: !!activeCluster,
   });
   const activeAlerts = (alerts.data ?? []).filter((a) => a.severity !== "info").length;
+
+  // Real connection state, driven by the same describe-cluster call the dashboard uses.
+  const cluster = useQuery({
+    queryKey: ["cluster"],
+    queryFn: clusterApi.current,
+    refetchInterval: 30_000,
+    enabled: !!activeCluster,
+    retry: 1,
+  });
+  const conn = !activeCluster
+    ? { label: "No cluster", color: "var(--fg-4)", pulse: false }
+    : cluster.isError
+      ? { label: "Disconnected", color: "var(--red)", pulse: false }
+      : cluster.data
+        ? { label: "Connected", color: "var(--green)", pulse: true }
+        : { label: "Connecting…", color: "var(--amber)", pulse: true };
 
   const crumbs: { label: string; href?: string; current?: boolean; mono?: boolean }[] = [
     { label: "kafka-cluster", href: "/" },
@@ -81,9 +98,12 @@ export function Topbar() {
         <span>Search topics, groups, brokers…</span>
         <span className="ml-auto inline-flex items-center gap-0.5 rounded-1 border border-border bg-bg-3 px-1.5 font-mono text-[10.5px] text-fg-3">⌘K</span>
       </button>
-      <div className="flex items-center gap-1.5 px-2 text-[12px] text-fg-3">
-        <span className="h-1.5 w-1.5 animate-soft-pulse rounded-full bg-green" />
-        <span>Connected</span>
+      <div className="flex items-center gap-1.5 px-2 text-[12px] text-fg-3" title={conn.label}>
+        <span
+          className={cn("h-1.5 w-1.5 rounded-full", conn.pulse && "animate-soft-pulse")}
+          style={{ backgroundColor: conn.color }}
+        />
+        <span>{conn.label}</span>
       </div>
       {mounted && (
         <Button
