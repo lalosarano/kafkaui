@@ -158,7 +158,8 @@ export function AddClusterModal({
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
                   <div>
-                    Connected to cluster <span className="font-mono">{testResult.clusterId}</span>{" "}
+                    Connected to{" "}
+                    <span className="font-medium text-fg">{draft.name?.trim() || testResult.clusterId}</span>{" "}
                     · {testResult.brokerCount} broker(s) · controller{" "}
                     <span className="font-mono">{testResult.controllerId}</span>{" "}
                     · <span className="font-mono">{testResult.latencyMs}ms</span>

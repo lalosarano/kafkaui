@@ -149,8 +149,9 @@ public class ClusterRegistry {
      */
     public ClusterTestResult test(ClusterConfig cfg, long timeoutMs) {
         long start = System.currentTimeMillis();
-        AdminClient admin = buildProbeAdminClient(cfg.id() == null ? cfg.withId("__probe__") : cfg, (int) timeoutMs);
+        AdminClient admin = null;
         try {
+            admin = buildProbeAdminClient(cfg.id() == null ? cfg.withId("__probe__") : cfg, (int) timeoutMs);
             DescribeClusterResult res = admin.describeCluster();
             var nodes = res.nodes().get(timeoutMs, TimeUnit.MILLISECONDS);
             var controller = res.controller().get(timeoutMs, TimeUnit.MILLISECONDS);
@@ -173,7 +174,7 @@ public class ClusterRegistry {
             // Close hard: describeCluster() may still be retrying against an unreachable
             // broker, and a no-arg close() would block until those calls expire (~60s),
             // making the endpoint hang long after our own deadline fired.
-            admin.close(Duration.ofMillis(500));
+            if (admin != null) admin.close(Duration.ofMillis(500));
         }
     }
 }

@@ -58,7 +58,10 @@ public class ClusterConfigController {
     }
 
     @PostMapping("/test")
-    public ClusterTestResult test(@Valid @RequestBody ClusterConfig req) {
+    public ClusterTestResult test(@RequestBody ClusterConfig req) {
+        // No @Valid here: a connection probe only needs bootstrapServers, not a display
+        // name. Requiring the name would reject the request before the user can verify
+        // their broker is reachable.
         return registry.test(req, 5000);
     }
 }
