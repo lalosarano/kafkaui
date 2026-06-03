@@ -18,6 +18,7 @@ import { PageHeader } from "@/components/kafka/page-header";
 import { produceModalEvents } from "@/components/kafka/produce-modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TopicConfigsTab } from "@/components/kafka/topic-configs-tab";
+import { TopicConsumersTab } from "@/components/kafka/topic-consumers-tab";
 import { topicsApi } from "@/lib/api/topics";
 import { fmt } from "@/lib/format";
 import { toast } from "@/components/kafka/toast";
@@ -109,6 +110,7 @@ export default function TopicDetailPage() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="messages">Messages</TabsTrigger>
+          <TabsTrigger value="consumers">Consumers</TabsTrigger>
           <TabsTrigger value="config">Configuration</TabsTrigger>
           <TabsTrigger value="partitions">Partitions ({detail.partitions.length})</TabsTrigger>
         </TabsList>
@@ -133,6 +135,10 @@ export default function TopicDetailPage() {
 
         <TabsContent value="messages">
           <MessageBrowser topicName={name} partitionCount={detail.partitions.length} />
+        </TabsContent>
+
+        <TabsContent value="consumers">
+          <TopicConsumersTab topicName={name} />
         </TabsContent>
 
         <TabsContent value="config">

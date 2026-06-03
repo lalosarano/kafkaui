@@ -69,6 +69,11 @@ class ConsumerGroupServiceIT extends AbstractKafkaIT {
         assertEquals(groupId, reset.groupId());
         assertEquals(topic, reset.topic());
         assertEquals(Long.valueOf(0L), reset.partitionOffsets().get(0));
+
+        // The committed group must surface under its topic (drives the topic Consumers tab).
+        var topicGroups = groupService.groupsForTopic(topic);
+        assertTrue(topicGroups.stream().anyMatch(g -> g.groupId().equals(groupId) && g.assignedPartitions() >= 1),
+                "the committed group should appear under its topic with an assigned partition");
     }
 
     @Test

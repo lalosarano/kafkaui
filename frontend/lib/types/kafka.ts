@@ -145,6 +145,14 @@ export type ConsumerGroupSummary = {
   coordinator: number | null;
 };
 
+export type TopicConsumerGroup = {
+  groupId: string;
+  state: string;
+  members: number;
+  lag: number;
+  assignedPartitions: number;
+};
+
 export type ConsumerGroupMember = {
   memberId: string;
   clientId: string;

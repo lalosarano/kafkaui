@@ -10,9 +10,11 @@ import com.kafkagui.consumer.dto.ConsumerGroupSummary;
 import com.kafkagui.consumer.dto.PartitionAssignment;
 import com.kafkagui.consumer.dto.ResetOffsetsRequest;
 import com.kafkagui.consumer.dto.ResetOffsetsResult;
+import com.kafkagui.consumer.dto.TopicConsumerGroup;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -20,6 +22,7 @@ import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ConsumerGroupDescription;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
+import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsSpec;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.MemberDescription;
 import org.apache.kafka.clients.admin.OffsetSpec;
@@ -128,6 +131,58 @@ public class ConsumerGroupService {
                 members,
                 assignments
         );
+    }
+
+    /** Consumer groups that have committed offsets on {@code topic}, with that topic's lag. */
+    public List<TopicConsumerGroup> groupsForTopic(String topic) {
+        AdminClient adminClient = client();
+        List<String> ids = await(adminClient.listConsumerGroups().all()).stream()
+                .map(ConsumerGroupListing::groupId)
+                .toList();
+        if (ids.isEmpty()) return List.of();
+
+        // Batch committed offsets for every group in a single request.
+        Map<String, ListConsumerGroupOffsetsSpec> specs = new HashMap<>();
+        for (String id : ids) specs.put(id, new ListConsumerGroupOffsetsSpec());
+        Map<String, Map<TopicPartition, OffsetAndMetadata>> offsets =
+                await(adminClient.listConsumerGroupOffsets(specs).all());
+
+        // Keep only groups with committed offsets on this topic.
+        Map<String, Map<TopicPartition, OffsetAndMetadata>> matching = new HashMap<>();
+        Set<TopicPartition> topicPartitions = new HashSet<>();
+        for (var e : offsets.entrySet()) {
+            Map<TopicPartition, OffsetAndMetadata> forTopic = e.getValue().entrySet().stream()
+                    .filter(o -> o.getKey().topic().equals(topic))
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            if (!forTopic.isEmpty()) {
+                matching.put(e.getKey(), forTopic);
+                topicPartitions.addAll(forTopic.keySet());
+            }
+        }
+        if (matching.isEmpty()) return List.of();
+
+        Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> ends = await(adminClient.listOffsets(
+                topicPartitions.stream().collect(Collectors.toMap(t -> t, t -> OffsetSpec.latest()))).all());
+        Map<String, ConsumerGroupDescription> descs = await(adminClient.describeConsumerGroups(matching.keySet()).all());
+
+        List<TopicConsumerGroup> out = new ArrayList<>(matching.size());
+        for (var e : matching.entrySet()) {
+            Map<TopicPartition, OffsetAndMetadata> committed = e.getValue();
+            long lag = 0;
+            for (var c : committed.entrySet()) {
+                long end = ends.containsKey(c.getKey()) ? ends.get(c.getKey()).offset() : c.getValue().offset();
+                lag += Math.max(0, end - c.getValue().offset());
+            }
+            ConsumerGroupDescription d = descs.get(e.getKey());
+            out.add(new TopicConsumerGroup(
+                    e.getKey(),
+                    d != null ? d.state().toString().toLowerCase() : "unknown",
+                    d != null ? d.members().size() : 0,
+                    lag,
+                    committed.size()));
+        }
+        out.sort((a, b) -> Long.compare(b.lag(), a.lag()));
+        return out;
     }
 
     private long computeTotalLag(AdminClient adminClient, String groupId) {

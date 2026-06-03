@@ -4,6 +4,7 @@ import com.kafkagui.consumer.dto.ConsumerGroupDetail;
 import com.kafkagui.consumer.dto.ConsumerGroupSummary;
 import com.kafkagui.consumer.dto.ResetOffsetsRequest;
 import com.kafkagui.consumer.dto.ResetOffsetsResult;
+import com.kafkagui.consumer.dto.TopicConsumerGroup;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
@@ -36,6 +37,11 @@ public class ConsumerGroupController {
     @GetMapping("/{id}")
     public ConsumerGroupDetail get(@PathVariable String id) {
         return service.get(id);
+    }
+
+    @GetMapping("/by-topic/{topic}")
+    public List<TopicConsumerGroup> byTopic(@PathVariable String topic) {
+        return service.groupsForTopic(topic);
     }
 
     @PostMapping("/{id}/reset-offsets")
