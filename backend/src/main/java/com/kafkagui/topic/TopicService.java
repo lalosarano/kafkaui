@@ -71,11 +71,13 @@ public class TopicService {
                 .map(td -> {
                     long messages = 0;
                     long bytes = 0;
+                    int outOfSync = 0;
                     for (var p : td.partitions()) {
                         TopicPartition tp = new TopicPartition(td.name(), p.partition());
                         long lo = earliest.getOrDefault(tp, 0L);
                         long hi = latest.getOrDefault(tp, lo);
                         messages += Math.max(0, hi - lo);
+                        outOfSync += Math.max(0, p.replicas().size() - p.isr().size());
                         if (haveSize && p.leader() != null) {
                             Map<TopicPartition, Long> brokerMap = dirSizes.get(p.leader().id());
                             if (brokerMap != null) bytes += brokerMap.getOrDefault(tp, 0L);
@@ -87,7 +89,8 @@ public class TopicService {
                             td.partitions().isEmpty() ? 0 : td.partitions().get(0).replicas().size(),
                             td.isInternal(),
                             messages,
-                            haveSize ? bytes : -1L
+                            haveSize ? bytes : -1L,
+                            outOfSync
                     );
                 })
                 .sorted((a, b) -> a.name().compareTo(b.name()))
@@ -172,7 +175,7 @@ public class TopicService {
             nt.configs(req.configs());
         }
         await(client().createTopics(List.of(nt)).all());
-        return new Topic(req.name(), req.partitions(), req.replicationFactor(), false, 0L, 0L);
+        return new Topic(req.name(), req.partitions(), req.replicationFactor(), false, 0L, 0L, 0);
     }
 
     public void delete(String name) {

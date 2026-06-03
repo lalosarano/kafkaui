@@ -77,6 +77,7 @@ export type Topic = {
   internal: boolean;
   messages: number;
   sizeBytes: number;
+  outOfSyncReplicas: number;
 };
 
 export type Partition = {

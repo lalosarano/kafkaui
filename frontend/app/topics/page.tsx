@@ -88,6 +88,15 @@ function TopicsPageInner() {
             : <span className="font-mono tabular-nums">{fmt.bytes(row.original.sizeBytes / 1_048_576)}</span>,
       },
       {
+        accessorKey: "outOfSyncReplicas",
+        header: "OOS replicas",
+        meta: { align: "right" },
+        cell: ({ row }) => {
+          const oos = row.original.outOfSyncReplicas;
+          return <span className={`font-mono tabular-nums ${oos > 0 ? "text-red" : "text-fg-3"}`}>{oos}</span>;
+        },
+      },
+      {
         id: "actions",
         header: () => null,
         enableSorting: false,
