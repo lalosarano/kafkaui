@@ -4,12 +4,15 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ArrowRight, Info, RefreshCcw, Send, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { brokersApi } from "@/lib/api/brokers";
 import { clusterApi } from "@/lib/api/cluster";
+import { clusterConfigsApi } from "@/lib/api/cluster-configs";
+import { getActiveClusterId, subscribeActiveCluster } from "@/lib/active-cluster";
 import { alertsApi, metricsApi } from "@/lib/api/metrics";
 import { DualAreaChart } from "@/components/kafka/area-chart";
 import { ErrorState } from "@/components/kafka/error-state";
@@ -24,7 +27,14 @@ import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const [activeClusterId, setActiveClusterId] = useState<string | null>(null);
+  useEffect(() => {
+    setActiveClusterId(getActiveClusterId());
+    return subscribeActiveCluster(setActiveClusterId);
+  }, []);
   const cluster = useQuery({ queryKey: ["cluster"], queryFn: clusterApi.current, refetchInterval: 30_000 });
+  const clusterConfigs = useQuery({ queryKey: ["cluster-configs"], queryFn: clusterConfigsApi.list, staleTime: 30_000 });
+  const clusterName = clusterConfigs.data?.find((c) => c.id === activeClusterId)?.name;
   const brokers = useQuery({ queryKey: ["brokers"], queryFn: brokersApi.list, refetchInterval: 30_000 });
   const throughput = useQuery({
     queryKey: ["throughput"],
@@ -52,7 +62,7 @@ export default function DashboardPage() {
       <PageHeader
         title={
           <span>
-            {cluster.data?.clusterId ?? "kafka-cluster"}{" "}
+            {clusterName ?? activeClusterId ?? "Cluster"}{" "}
             {cluster.data && (
               <Badge tone="green" dot className="ml-2 align-middle">Healthy</Badge>
             )}

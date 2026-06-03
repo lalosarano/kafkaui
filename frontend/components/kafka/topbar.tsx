@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { commandPaletteEvents } from "./command-palette";
 import { alertsApi } from "@/lib/api/metrics";
 import { clusterApi } from "@/lib/api/cluster";
+import { clusterConfigsApi } from "@/lib/api/cluster-configs";
 import { getActiveClusterId, subscribeActiveCluster } from "@/lib/active-cluster";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +37,14 @@ export function Topbar() {
   });
   const activeAlerts = (alerts.data ?? []).filter((a) => a.severity !== "info").length;
 
+  // Resolve the active cluster's display name for the breadcrumb (shared/cached query).
+  const clusterConfigs = useQuery({
+    queryKey: ["cluster-configs"],
+    queryFn: clusterConfigsApi.list,
+    staleTime: 30_000,
+  });
+  const clusterName = clusterConfigs.data?.find((c) => c.id === activeCluster)?.name;
+
   // Real connection state, driven by the same describe-cluster call the dashboard uses.
   const cluster = useQuery({
     queryKey: ["cluster"],
@@ -53,7 +62,7 @@ export function Topbar() {
         : { label: "Connecting…", color: "var(--amber)", pulse: true };
 
   const crumbs: { label: string; href?: string; current?: boolean; mono?: boolean }[] = [
-    { label: "kafka-cluster", href: "/" },
+    { label: clusterName ?? activeCluster ?? "Kafka GUI", href: "/" },
   ];
   if (pathname === "/") crumbs.push({ label: "Overview", current: true });
   else if (pathname.startsWith("/topics")) {
@@ -98,13 +107,17 @@ export function Topbar() {
         <span>Search topics, groups, brokers…</span>
         <span className="ml-auto inline-flex items-center gap-0.5 rounded-1 border border-border bg-bg-3 px-1.5 font-mono text-[10.5px] text-fg-3">⌘K</span>
       </button>
-      <div className="flex items-center gap-1.5 px-2 text-[12px] text-fg-3" title={conn.label}>
+      <div
+        className="flex items-center gap-1.5 rounded-full border border-border bg-bg-2 px-2.5 py-1 text-[11.5px] font-medium text-fg-2"
+        title={`Cluster ${conn.label.toLowerCase()}`}
+      >
         <span
           className={cn("h-1.5 w-1.5 rounded-full", conn.pulse && "animate-soft-pulse")}
           style={{ backgroundColor: conn.color }}
         />
         <span>{conn.label}</span>
       </div>
+      <div className="mx-0.5 h-5 w-px bg-border" />
       {mounted && (
         <Button
           variant="ghost"
