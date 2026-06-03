@@ -51,6 +51,20 @@ vi.mock("@/lib/api/metrics", () => ({
   },
 }));
 
+vi.mock("@/lib/api/cluster-configs", () => ({
+  clusterConfigsApi: {
+    list: vi.fn(async () => [
+      { id: "test-cluster", name: "test-cluster", color: null, bootstrapServers: "localhost:9092", securityProtocol: "PLAINTEXT" },
+    ]),
+  },
+}));
+
+vi.mock("@/lib/active-cluster", () => ({
+  getActiveClusterId: () => "test-cluster",
+  subscribeActiveCluster: () => () => {},
+  setActiveClusterId: vi.fn(),
+}));
+
 function renderWithQuery(ui: React.ReactElement) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
@@ -58,6 +72,8 @@ function renderWithQuery(ui: React.ReactElement) {
 
 describe("DashboardPage", () => {
   it("renders cluster KPIs, broker table, and alerts once data loads", async () => {
+    // The dashboard title shows the active cluster's display name, resolved from
+    // the cluster-configs list keyed by the active cluster id (mocked above).
     renderWithQuery(<DashboardPage />);
     await waitFor(() => {
       expect(screen.getAllByText("test-cluster").length).toBeGreaterThan(0);
