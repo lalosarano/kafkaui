@@ -3,6 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { Sidebar } from "@/components/kafka/sidebar";
 import { Topbar } from "@/components/kafka/topbar";
+import { ClusterGate } from "@/components/kafka/cluster-gate";
 import { CommandPaletteMount } from "@/components/kafka/command-palette";
 import { ProduceModalMount } from "@/components/kafka/produce-modal";
 import { ToastMount } from "@/components/kafka/toast";
@@ -29,7 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Sidebar />
             <main className="flex min-w-0 flex-col overflow-hidden">
               <Topbar />
-              <div className="relative flex-1 overflow-y-auto overflow-x-hidden">{children}</div>
+              <div className="relative flex-1 overflow-y-auto overflow-x-hidden">
+                <ClusterGate>{children}</ClusterGate>
+              </div>
             </main>
           </div>
           <CommandPaletteMount />

@@ -35,8 +35,14 @@ public class ClusterContextFilter extends OncePerRequestFilter {
         try {
             String header = request.getHeader(HEADER);
             String param = request.getParameter(QUERY_PARAM);
-            String resolved = (header != null && !header.isBlank()) ? header
+            String requested = (header != null && !header.isBlank()) ? header
                     : (param != null && !param.isBlank()) ? param
+                    : null;
+            // A stale client may still send the id of a deleted cluster. Rather than
+            // failing every request with "Unknown cluster id", fall back to the default
+            // cluster when the requested id no longer exists.
+            String resolved = (requested != null && store.get(requested).isPresent())
+                    ? requested
                     : store.defaultClusterId().orElse(null);
             if (resolved != null) ClusterContext.set(resolved);
             chain.doFilter(request, response);

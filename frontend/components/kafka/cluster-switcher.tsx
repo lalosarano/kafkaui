@@ -38,9 +38,16 @@ export function ClusterSwitcher({ collapsed }: { collapsed: boolean }) {
     staleTime: 30_000,
   });
 
-  // Auto-select first cluster if none stored
+  // Reconcile the stored active id against the real cluster list. This self-heals a
+  // dangling id left behind by a deleted cluster (the old check only fired when the id
+  // was unset, so a stale "onaim" was sent as X-Cluster-Id forever): if the stored id is
+  // gone or unset, fall back to the first cluster; if none remain, clear it.
   React.useEffect(() => {
-    if (clustersQ.data && clustersQ.data.length > 0 && !activeId) {
+    if (!clustersQ.data) return;
+    const ids = clustersQ.data.map((c) => c.id);
+    if (ids.length === 0) {
+      if (activeId !== null) setActiveClusterId(null);
+    } else if (!activeId || !ids.includes(activeId)) {
       setActiveClusterId(clustersQ.data[0].id);
     }
   }, [clustersQ.data, activeId]);
