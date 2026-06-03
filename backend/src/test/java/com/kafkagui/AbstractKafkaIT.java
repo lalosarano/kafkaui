@@ -30,7 +30,10 @@ import org.testcontainers.utility.DockerImageName;
 public abstract class AbstractKafkaIT {
 
     static final KafkaContainer KAFKA = new KafkaContainer(
-            DockerImageName.parse("confluentinc/cp-kafka:7.5.3"));
+            DockerImageName.parse("confluentinc/cp-kafka:7.5.3"))
+            // Disable broker-side auto topic creation so the "unknown topic" negative tests
+            // observe a real UnknownTopicOrPartitionException instead of silently creating it.
+            .withEnv("KAFKA_AUTO_CREATE_TOPICS_ENABLE", "false");
 
     static {
         KAFKA.start();

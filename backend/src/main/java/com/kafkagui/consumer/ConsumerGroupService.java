@@ -24,6 +24,7 @@ import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.MemberDescription;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.ConsumerGroupState;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.stereotype.Service;
 
@@ -75,7 +76,9 @@ public class ConsumerGroupService {
     public ConsumerGroupDetail get(String groupId) {
         AdminClient adminClient = client();
         ConsumerGroupDescription d = await(adminClient.describeConsumerGroups(List.of(groupId)).all()).get(groupId);
-        if (d == null) {
+        // Kafka returns a DEAD-state description (not null) for a group that has never existed,
+        // so treat that as "not found" too — maps to 404 group-not-found in the API.
+        if (d == null || d.state() == ConsumerGroupState.DEAD) {
             throw new org.apache.kafka.common.errors.GroupIdNotFoundException(groupId);
         }
         Map<TopicPartition, OffsetAndMetadata> committed = await(adminClient.listConsumerGroupOffsets(groupId)
